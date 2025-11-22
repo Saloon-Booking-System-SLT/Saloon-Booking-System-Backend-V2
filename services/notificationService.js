@@ -1,5 +1,12 @@
 const emailService = require('./emailService');
 const twilio = require('twilio');
+const sgMail = require('@sendgrid/mail'); // SendGrid API
+
+// SendGrid configuration for production
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('📧 SendGrid API initialized for production');
+}
 
 // Enhanced Gmail SMTP configuration for production
 const createEmailTransporter = () => {
@@ -658,7 +665,12 @@ class NotificationService {
       
       const emailContent = emailTemplates[template](data);
       
-      // Create professional mail options
+      // Use SendGrid API if available (for production/Render)
+      if (process.env.SENDGRID_API_KEY && process.env.NODE_ENV === 'production') {
+        return await this.sendEmailViaSendGrid(to, emailContent);
+      }
+      
+      // Fallback to SMTP (for local development)
       const mailOptions = emailService.createMailOptions(
         to,
         emailContent.subject,
@@ -693,6 +705,47 @@ class NotificationService {
     } catch (error) {
       console.error('❌ Email preparation failed:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  // SendGrid API email sending method
+  async sendEmailViaSendGrid(to, emailContent) {
+    try {
+      const msg = {
+        to: to,
+        from: process.env.SENDGRID_FROM_EMAIL || 'saloonbookingsystem@gmail.com',
+        subject: emailContent.subject,
+        text: emailContent.text,
+        html: emailContent.html,
+      };
+
+      console.log('📧 Sending email via SendGrid API...');
+      const result = await sgMail.send(msg);
+      
+      console.log('✅ SendGrid email sent successfully:', {
+        to: to,
+        messageId: result[0].headers['x-message-id'],
+        service: 'SendGrid API'
+      });
+      
+      return {
+        success: true,
+        messageId: result[0].headers['x-message-id'],
+        service: 'SendGrid API'
+      };
+      
+    } catch (error) {
+      console.error('❌ SendGrid email failed:', {
+        error: error.message,
+        code: error.code,
+        response: error.response?.body
+      });
+      
+      return {
+        success: false,
+        error: error.message,
+        service: 'SendGrid API'
+      };
     }
   }
 
