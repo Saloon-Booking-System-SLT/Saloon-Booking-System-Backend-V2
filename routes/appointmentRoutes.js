@@ -82,20 +82,67 @@ generateWeeklyTimeSlots();
 // ✅ GET appointments by salonId with optional filters
 router.get("/salon/:id", async (req, res) => {
   try {
+    const salonId = req.params.id;
     const { date, professionalId } = req.query;
-    const query = { salonId: req.params.id };
+    
+    console.log(`🔍 Fetching appointments for salon: ${salonId}`);
+    console.log(`📅 Date filter: ${date || 'none'}`);
+    console.log(`👨‍💼 Professional filter: ${professionalId || 'none'}`);
+    
+    const query = { salonId: salonId };
     if (date) query.date = date;
     if (professionalId) query.professionalId = professionalId;
+
+    console.log('🔎 Query object:', JSON.stringify(query));
 
     const appointments = await Appointment.find(query)
       .sort({ date: 1, startTime: 1 })
       .populate("salonId")
       .populate("professionalId");
 
+    console.log(`✅ Found ${appointments.length} appointments for salon ${salonId}`);
+
     res.json(appointments);
   } catch (err) {
     console.error("❌ Error fetching appointments:", err);
-    res.status(500).json({ message: "Failed to fetch appointments" });
+    res.status(500).json({ message: "Failed to fetch appointments", error: err.message });
+  }
+});
+
+// 🧪 Test route to check all appointments in database
+router.get("/test/all", async (req, res) => {
+  try {
+    console.log("🧪 Testing database connection...");
+    
+    const allAppointments = await Appointment.find();
+    const totalCount = await Appointment.countDocuments();
+    
+    console.log(`📊 Total appointments in database: ${totalCount}`);
+    
+    // Group by salonId for debugging
+    const bySalon = {};
+    allAppointments.forEach(appt => {
+      const salonId = appt.salonId?.toString() || 'unknown';
+      if (!bySalon[salonId]) bySalon[salonId] = 0;
+      bySalon[salonId]++;
+    });
+    
+    console.log('📊 Appointments by salon:', bySalon);
+    
+    res.json({
+      total: totalCount,
+      bySalon,
+      sample: allAppointments.slice(0, 3).map(a => ({
+        id: a._id,
+        salonId: a.salonId,
+        date: a.date,
+        status: a.status,
+        user: a.user?.name
+      }))
+    });
+  } catch (err) {
+    console.error("❌ Test route error:", err);
+    res.status(500).json({ message: "Test failed", error: err.message });
   }
 });
 
