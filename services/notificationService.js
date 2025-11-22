@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+const emailService = require('./emailService');
 const twilio = require('twilio');
 
 // Enhanced Gmail SMTP configuration for production
@@ -456,17 +456,8 @@ const smsTemplates = {
 
 class NotificationService {
   constructor() {
-    try {
-      this.emailTransporter = createEmailTransporter();
-      if (this.emailTransporter) {
-        console.log('📧 Gmail email service initialized successfully');
-      } else {
-        console.log('⚠️ Email service not available');
-      }
-    } catch (error) {
-      console.error('❌ Email service initialization failed:', error);
-      this.emailTransporter = null;
-    }
+    // Professional Email Service is auto-initialized
+    console.log('📧 Professional Email Service Status:', emailService.getStatus());
 
     try {
       this.twilioClient = createTwilioClient();
@@ -479,81 +470,54 @@ class NotificationService {
     }
   }
 
-  // Test email connection with enhanced error handling
+  // Test email connection using professional service
   async testEmailConnection() {
-    if (!this.emailTransporter) {
-      console.log('❌ No email transporter available');
-      return false;
-    }
-    
-    try {
-      console.log('🔍 Testing Gmail SMTP connection...');
-      await this.emailTransporter.verify();
-      console.log('✅ Gmail SMTP connection successful');
-      return true;
-    } catch (error) {
-      console.error('❌ Gmail SMTP connection failed:', {
-        message: error.message,
-        code: error.code,
-        command: error.command
-      });
-      
-      // Log specific error types
-      if (error.code === 'ETIMEDOUT') {
-        console.log('🚫 Connection timeout - SMTP ports may be blocked by hosting provider');
-      } else if (error.code === 'ECONNREFUSED') {
-        console.log('🚫 Connection refused - SMTP server not reachable');
-      }
-      
-      return false;
-    }
+    console.log('🔍 Testing Professional Email Service...');
+    return await emailService.testConnection();
   }
 
-  // Enhanced Gmail email sending with better error handling
+  // Professional email sending with advanced error handling
   async sendEmail(to, template, data) {
-    if (!this.emailTransporter) {
-      console.log('⚠️ Email service not available, skipping email');
-      return { success: false, error: 'Email service not configured' };
-    }
-
     try {
+      console.log(`📧 Preparing ${template} email for: ${to}`);
+      
       const emailContent = emailTemplates[template](data);
       
-      const mailOptions = {
-        from: `"Salon Booking System" <${process.env.EMAIL_USER || 'saloonbookingsystem@gmail.com'}>`,
-        to: to,
-        subject: emailContent.subject,
-        text: emailContent.text,
-        html: emailContent.html
-      };
+      // Create professional mail options
+      const mailOptions = emailService.createMailOptions(
+        to,
+        emailContent.subject,
+        emailContent.html,
+        emailContent.text
+      );
 
-      console.log(`📧 Sending ${template} email to: ${to}`);
-      console.log('🔧 Mail options:', {
-        from: mailOptions.from,
-        to: mailOptions.to,
-        subject: mailOptions.subject
-      });
+      // Send with professional retry logic
+      const result = await emailService.sendEmail(mailOptions, 3);
       
-      const result = await this.emailTransporter.sendMail(mailOptions);
-      console.log('✅ Email sent successfully via Gmail:', result.messageId);
-      return { success: true, messageId: result.messageId, service: 'Gmail' };
-      
-    } catch (error) {
-      console.error('❌ Gmail email sending failed:', {
-        message: error.message,
-        code: error.code,
-        command: error.command,
-        response: error.response
-      });
-
-      // Provide helpful error messages
-      if (error.code === 'ETIMEDOUT') {
-        console.log('💡 Suggestion: SMTP ports may be blocked. Consider using SendGrid for production.');
-      } else if (error.responseCode === 535) {
-        console.log('💡 Suggestion: Check Gmail app password or enable 2-factor authentication.');
+      if (result.success) {
+        console.log('✅ Professional email sent successfully:', {
+          to: to,
+          template: template,
+          messageId: result.messageId,
+          service: result.service,
+          attempt: result.attempt
+        });
+      } else {
+        console.error('❌ Professional email sending failed:', {
+          to: to,
+          template: template,
+          error: result.error,
+          code: result.code,
+          suggestion: result.suggestion,
+          attempts: result.attempts
+        });
       }
       
-      return { success: false, error: error.message, code: error.code };
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Email preparation failed:', error);
+      return { success: false, error: error.message };
     }
   }
 
