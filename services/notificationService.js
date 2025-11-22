@@ -20,9 +20,20 @@ const createEmailTransporter = () => {
 
 // Twilio client configuration
 const createTwilioClient = () => {
-  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-    return twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  
+  // Only create Twilio client if proper credentials are provided
+  if (accountSid && authToken && accountSid.trim() !== '' && authToken.trim() !== '' && accountSid.startsWith('AC')) {
+    try {
+      return twilio(accountSid, authToken);
+    } catch (error) {
+      console.warn('⚠️ Twilio initialization failed:', error.message);
+      return null;
+    }
   }
+  
+  console.log('📱 Twilio not configured - SMS notifications disabled');
   return null;
 };
 
@@ -428,8 +439,23 @@ const smsTemplates = {
 
 class NotificationService {
   constructor() {
-    this.emailTransporter = createEmailTransporter();
-    this.twilioClient = createTwilioClient();
+    try {
+      this.emailTransporter = createEmailTransporter();
+      console.log('📧 Email service initialized');
+    } catch (error) {
+      console.error('❌ Email service initialization failed:', error);
+      this.emailTransporter = null;
+    }
+
+    try {
+      this.twilioClient = createTwilioClient();
+      if (this.twilioClient) {
+        console.log('📱 Twilio service initialized');
+      }
+    } catch (error) {
+      console.error('❌ Twilio service initialization failed:', error);
+      this.twilioClient = null;
+    }
   }
 
   // Test email connection
@@ -446,6 +472,11 @@ class NotificationService {
 
   // Send email notification
   async sendEmail(to, template, data) {
+    if (!this.emailTransporter) {
+      console.log('⚠️ Email service not available, skipping email');
+      return { success: false, error: 'Email service not configured' };
+    }
+
     try {
       const emailContent = emailTemplates[template](data);
       
