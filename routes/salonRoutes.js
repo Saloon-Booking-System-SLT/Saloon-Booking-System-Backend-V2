@@ -133,11 +133,14 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// ✅ Get all salons (public)
+// ✅ Get all salons (public) - Only show approved salons
 router.get("/", async (req, res) => {
   try {
     const { location } = req.query;
-    const query = location ? { location: { $regex: location, $options: "i" } } : {};
+    const query = { 
+      approvalStatus: 'approved',
+      ...(location && { location: { $regex: location, $options: "i" } })
+    };
     const salons = await Salon.find(query).select('-password');
     res.json(salons);
   } catch (err) {
@@ -154,7 +157,7 @@ router.get("/nearby", async (req, res) => {
   }
 
   try {
-    const allSalons = await Salon.find().select('-password');
+    const allSalons = await Salon.find({ approvalStatus: 'approved' }).select('-password');
     const districts = {
       colombo: { lat: 6.9271, lng: 79.8612 },
       kandy: { lat: 7.2906, lng: 80.6337 },

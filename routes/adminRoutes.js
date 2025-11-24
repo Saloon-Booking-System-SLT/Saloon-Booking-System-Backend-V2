@@ -60,7 +60,7 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
     const totalEmployees = await Professional.countDocuments();
     
     // Get pending approvals (salons with pending status)
-    const pendingApprovals = await Salon.countDocuments({ status: 'pending' });
+    const pendingApprovals = await Salon.countDocuments({ approvalStatus: 'pending' });
     
     // Get latest bookings
     const latestBookings = await Appointment.find()
@@ -345,6 +345,77 @@ router.get('/notifications/status', authenticateToken, requireAdmin, (req, res) 
   } catch (error) {
     console.error('Error getting notification status:', error);
     res.status(500).json({ message: 'Failed to get notification status' });
+  }
+});
+
+// GET: All salons with their approval status (Protected - Admin only)
+router.get('/salons', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.query; // Can filter by status: pending, approved, rejected
+    const query = status ? { approvalStatus: status } : {};
+    
+    const salons = await Salon.find(query)
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    res.json(salons);
+  } catch (err) {
+    console.error('Error fetching salons:', err);
+    res.status(500).json({ message: 'Failed to fetch salons' });
+  }
+});
+
+// PATCH: Approve a salon (Protected - Admin only)
+router.patch('/salons/:id/approve', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const salon = await Salon.findByIdAndUpdate(
+      req.params.id,
+      { 
+        approvalStatus: 'approved',
+        rejectionReason: null
+      },
+      { new: true }
+    ).select('-password');
+    
+    if (!salon) {
+      return res.status(404).json({ message: 'Salon not found' });
+    }
+    
+    res.json({ 
+      message: 'Salon approved successfully',
+      salon 
+    });
+  } catch (err) {
+    console.error('Error approving salon:', err);
+    res.status(500).json({ message: 'Failed to approve salon' });
+  }
+});
+
+// PATCH: Reject a salon (Protected - Admin only)
+router.patch('/salons/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    
+    const salon = await Salon.findByIdAndUpdate(
+      req.params.id,
+      { 
+        approvalStatus: 'rejected',
+        rejectionReason: reason || 'No reason provided'
+      },
+      { new: true }
+    ).select('-password');
+    
+    if (!salon) {
+      return res.status(404).json({ message: 'Salon not found' });
+    }
+    
+    res.json({ 
+      message: 'Salon rejected successfully',
+      salon 
+    });
+  } catch (err) {
+    console.error('Error rejecting salon:', err);
+    res.status(500).json({ message: 'Failed to reject salon' });
   }
 });
 
