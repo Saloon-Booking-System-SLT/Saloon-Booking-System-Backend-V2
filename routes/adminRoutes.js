@@ -253,10 +253,26 @@ router.get('/feedbacks', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const feedbacks = await Feedback.find()
       .sort({ createdAt: -1 })
-      .populate('salonId', 'name')
-      .populate('professionalId', 'name');
+      .populate('salonId', 'name location')
+      .populate('professionalId', 'name')
+      .lean(); // Convert to plain JavaScript objects
     
-    res.json(feedbacks);
+    // Transform data to match frontend expectations
+    const transformedFeedbacks = feedbacks.map(feedback => ({
+      _id: feedback._id,
+      status: feedback.status || 'pending',
+      rating: feedback.rating,
+      comment: feedback.comment || '',
+      review: feedback.comment || '', // Alias for comment
+      customerName: feedback.customerName || 'Anonymous',
+      userEmail: feedback.userEmail,
+      salonId: feedback.salonId,
+      professionalId: feedback.professionalId,
+      createdAt: feedback.createdAt,
+      appointmentId: feedback.appointmentId
+    }));
+    
+    res.json(transformedFeedbacks);
   } catch (err) {
     console.error('Error fetching feedbacks:', err);
     res.status(500).json({ message: 'Failed to fetch feedbacks' });
