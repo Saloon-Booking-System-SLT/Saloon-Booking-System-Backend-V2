@@ -80,7 +80,8 @@ router.post("/register", upload.single("image"), async (req, res) => {
         services: newSalon.services,
         workingHours: newSalon.workingHours,
         image: newSalon.image,
-        role: newSalon.role
+        role: newSalon.role,
+        approvalStatus: newSalon.approvalStatus
       }
     });
   } catch (err) {
@@ -89,7 +90,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
   }
 });
 
-// ✅ Login with JWT
+// ✅ Login with JWT - UPDATED WITH APPROVAL STATUS CHECK
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   
@@ -104,7 +105,7 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    // Generate JWT token
+    // Generate JWT token (even for pending salons so they can see pending message)
     const token = generateToken({
       userId: salon._id,
       email: salon.email,
@@ -112,6 +113,7 @@ router.post("/login", async (req, res) => {
       salonName: salon.name
     });
 
+    // Return salon data with approval status
     res.json({
       message: "Login successful",
       token,
@@ -124,7 +126,9 @@ router.post("/login", async (req, res) => {
         services: salon.services,
         workingHours: salon.workingHours,
         image: salon.image,
-        role: salon.role
+        role: salon.role,
+        approvalStatus: salon.approvalStatus, // ✅ Include approval status
+        rejectionReason: salon.rejectionReason // ✅ Include rejection reason if any
       }
     });
   } catch (err) {
@@ -133,11 +137,14 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// ✅ Get all salons (public)
+// ✅ Get all salons (public) - Only show approved salons
 router.get("/", async (req, res) => {
   try {
     const { location } = req.query;
-    const query = location ? { location: { $regex: location, $options: "i" } } : {};
+    const query = { 
+      approvalStatus: 'approved',
+      ...(location && { location: { $regex: location, $options: "i" } })
+    };
     const salons = await Salon.find(query).select('-password');
     res.json(salons);
   } catch (err) {
@@ -154,13 +161,13 @@ router.get("/nearby", async (req, res) => {
   }
 
   try {
-    const allSalons = await Salon.find().select('-password');
+    const allSalons = await Salon.find({ approvalStatus: 'approved' }).select('-password');
     const districts = {
       colombo: { lat: 6.9271, lng: 79.8612 },
       kandy: { lat: 7.2906, lng: 80.6337 },
       galle: { lat: 6.0535, lng: 80.221 },
       jaffna: { lat: 9.6615, lng: 80.0255 },
-       matara: { lat: 5.9549, lng: 80.5549 },
+      matara: { lat: 5.9549, lng: 80.5549 },
       kurunegala: { lat: 7.4868, lng: 80.3659 },
       anuradhapura: { lat: 8.3114, lng: 80.4037 },
       negombo: { lat: 7.2083, lng: 79.8358 },
@@ -271,7 +278,9 @@ router.get("/owner/profile", authenticateToken, requireOwner, async (req, res) =
         image: salon.image,
         role: salon.role,
         salonType: salon.salonType,
-        coordinates: salon.coordinates
+        coordinates: salon.coordinates,
+        approvalStatus: salon.approvalStatus,
+        rejectionReason: salon.rejectionReason
       }
     });
   } catch (err) {

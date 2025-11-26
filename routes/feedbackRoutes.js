@@ -6,7 +6,7 @@ const Professional = require("../models/Professional.js");
 // 📥 Submit feedback (Customer side)
 router.post("/", async (req, res) => {
   try {
-    const { appointmentId, salonId, professionalId, userEmail, rating, comment } = req.body;
+    const { appointmentId, salonId, professionalId, userEmail, customerName, rating, comment } = req.body;
 
     // ✅ Validation
     if (!appointmentId || !salonId || !userEmail || !rating) {
@@ -23,14 +23,16 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "You have already submitted feedback for this appointment" });
     }
 
-    // ✅ Create feedback document
+    // ✅ Create feedback document with status
     const feedback = new Feedback({
       appointmentId,
       salonId,
-      professionalId, // optional: attach to professional if given
+      professionalId,
       userEmail,
+      customerName: customerName || 'Anonymous', // ✅ Save customer name
       rating,
       comment,
+      status: 'pending' // ✅ Default to pending
     });
 
     // ✅ Save to DB
@@ -67,8 +69,12 @@ router.get("/check/:appointmentId", async (req, res) => {
 // 📄 Get all feedbacks for a salon (Owner side)
 router.get("/salon/:salonId", async (req, res) => {
   try {
-    const feedbacks = await Feedback.find({ salonId: req.params.salonId })
-      .sort({ createdAt: -1 }); // newest first
+    const feedbacks = await Feedback.find({ 
+      salonId: req.params.salonId,
+      status: 'approved' // ✅ Only show approved feedbacks to public
+    })
+      .sort({ createdAt: -1 }) // newest first
+      .populate('professionalId', 'name');
     res.json(feedbacks);
   } catch (err) {
     console.error("Error fetching salon feedbacks:", err);
