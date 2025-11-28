@@ -1,5 +1,10 @@
 const nodemailer = require('nodemailer');
 
+// Load environment variables if not already loaded
+if (!process.env.EMAIL_USER) {
+  require('dotenv').config();
+}
+
 // Professional Email Service - Based on DQMS Success Pattern
 class EmailService {
   constructor() {
