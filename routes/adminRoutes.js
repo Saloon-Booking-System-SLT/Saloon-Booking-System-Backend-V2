@@ -8,6 +8,7 @@ const Feedback = require('../models/feedbackModel');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/jwtUtils');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
+const notificationService = require('../services/notificationService');
 
 // Admin Login with JWT tokens
 router.post('/login', async (req, res) => {
@@ -397,6 +398,24 @@ router.patch('/salons/:id/approve', authenticateToken, requireAdmin, async (req,
       return res.status(404).json({ message: 'Salon not found' });
     }
     
+    // Send approval notification email
+    try {
+      console.log(`📧 Sending approval notification for salon: ${salon.name}`);
+      const emailResult = await notificationService.sendSalonApprovalNotification({
+        salonName: salon.name,
+        ownerEmail: salon.email
+      });
+      
+      if (emailResult.success) {
+        console.log(`✅ Approval email sent successfully to ${salon.email}`);
+      } else {
+        console.error(`❌ Failed to send approval email to ${salon.email}:`, emailResult.error);
+      }
+    } catch (emailError) {
+      console.error(`❌ Error sending approval email:`, emailError.message);
+      // Don't fail the approval if email fails
+    }
+    
     res.json({ 
       message: 'Salon approved successfully',
       salon 
@@ -423,6 +442,25 @@ router.patch('/salons/:id/reject', authenticateToken, requireAdmin, async (req, 
     
     if (!salon) {
       return res.status(404).json({ message: 'Salon not found' });
+    }
+    
+    // Send rejection notification email
+    try {
+      console.log(`📧 Sending rejection notification for salon: ${salon.name}`);
+      const emailResult = await notificationService.sendSalonRejectionNotification({
+        salonName: salon.name,
+        ownerEmail: salon.email,
+        rejectionReason: salon.rejectionReason
+      });
+      
+      if (emailResult.success) {
+        console.log(`✅ Rejection email sent successfully to ${salon.email}`);
+      } else {
+        console.error(`❌ Failed to send rejection email to ${salon.email}:`, emailResult.error);
+      }
+    } catch (emailError) {
+      console.error(`❌ Error sending rejection email:`, emailError.message);
+      // Don't fail the rejection if email fails
     }
     
     res.json({ 

@@ -877,6 +877,503 @@ const emailTemplates = {
         Salon Booking System Team
       `
     };
+  },
+
+  salonApprovalNotification: (data) => {
+    const { salonName, ownerEmail } = data;
+    return {
+      subject: `🎉 Congratulations! Your salon has been approved - ${salonName}`,
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Salon Approved</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                    line-height: 1.6; 
+                    color: #2c3e50; 
+                    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .email-container { 
+                    max-width: 650px; 
+                    margin: 40px auto; 
+                    background: #ffffff; 
+                    border-radius: 16px; 
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                }
+                .header { 
+                    background: linear-gradient(135deg, #1FAF38 0%, #00C851 100%); 
+                    color: #ffffff; 
+                    padding: 40px 30px; 
+                    text-align: center;
+                    position: relative;
+                }
+                .header h1 { 
+                    font-size: 28px; 
+                    font-weight: 600; 
+                    margin-bottom: 8px;
+                    position: relative;
+                    z-index: 1;
+                }
+                .success-icon { 
+                    font-size: 60px; 
+                    margin-bottom: 20px;
+                    position: relative;
+                    z-index: 1;
+                }
+                .content { padding: 40px 30px; }
+                .greeting { 
+                    font-size: 18px; 
+                    color: #2c3e50; 
+                    margin-bottom: 16px;
+                    font-weight: 500;
+                }
+                .intro-text { 
+                    color: #546e7a; 
+                    margin-bottom: 30px; 
+                    font-size: 16px;
+                }
+                .salon-name {
+                    background: linear-gradient(135deg, #1FAF38, #00C851);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                    font-size: 24px;
+                    font-weight: 700;
+                    text-align: center;
+                    margin-bottom: 20px;
+                    color: #1FAF38;
+                }
+                .status-card { 
+                    background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%); 
+                    border: 2px solid #1FAF38;
+                    padding: 25px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                    text-align: center;
+                    box-shadow: 0 4px 20px rgba(31,175,56,0.08);
+                }
+                .status-text { 
+                    color: #2e7d32; 
+                    font-weight: bold; 
+                    font-size: 18px;
+                    margin-bottom: 10px;
+                }
+                .next-steps { 
+                    background: linear-gradient(135deg, #f1f8ff 0%, #e3f2fd 100%); 
+                    border-left: 4px solid #00AEEF;
+                    padding: 25px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                }
+                .steps-title { 
+                    font-size: 18px; 
+                    font-weight: 600; 
+                    color: #1a237e; 
+                    margin-bottom: 16px;
+                }
+                .steps-list { 
+                    list-style: none; 
+                    padding: 0;
+                }
+                .steps-list li { 
+                    color: #37474f; 
+                    margin: 12px 0; 
+                    padding-left: 25px;
+                    position: relative;
+                    line-height: 1.5;
+                }
+                .steps-list li::before {
+                    content: '🚀';
+                    position: absolute;
+                    left: 0;
+                    font-size: 16px;
+                }
+                .dashboard-button {
+                    background: linear-gradient(135deg, #00AEEF 0%, #1FAF38 100%);
+                    color: white;
+                    padding: 15px 30px;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    text-decoration: none;
+                    display: inline-block;
+                    margin: 20px 0;
+                    text-align: center;
+                    box-shadow: 0 4px 15px rgba(0,174,239,0.3);
+                }
+                .footer { 
+                    background: #f8f9fa; 
+                    padding: 30px; 
+                    text-align: center; 
+                    border-top: 1px solid #e9ecef;
+                }
+                .footer-text { 
+                    color: #6c757d; 
+                    font-size: 14px; 
+                    line-height: 1.5;
+                    margin-bottom: 8px;
+                }
+                @media (max-width: 600px) {
+                    .email-container { margin: 20px 10px; }
+                    .content { padding: 30px 20px; }
+                    .header { padding: 30px 20px; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <div class="header">
+                    <div class="success-icon">🎉</div>
+                    <h1>Salon Approved!</h1>
+                </div>
+                
+                <div class="content">
+                    <div class="greeting">Dear <strong>${salonName}</strong> Team,</div>
+                    <div class="intro-text">
+                        Excellent news! Your salon has been successfully approved and is now live on our platform. You can start accepting bookings immediately!
+                    </div>
+
+                    <div class="salon-name">${salonName}</div>
+                    
+                    <div class="status-card">
+                        <div class="status-text">✅ Your salon is now APPROVED and ACTIVE!</div>
+                        <div>Start managing your bookings and growing your business today</div>
+                    </div>
+
+                    <div class="next-steps">
+                        <div class="steps-title">You can now:</div>
+                        <ul class="steps-list">
+                            <li>Access your complete salon dashboard</li>
+                            <li>Manage your services and pricing</li>
+                            <li>Add professional staff members</li>
+                            <li>Set your available time slots</li>
+                            <li>Accept and manage customer bookings</li>
+                            <li>View your appointment calendar</li>
+                            <li>Track your salon's performance</li>
+                        </ul>
+                    </div>
+
+                    <div style="text-align: center;">
+                        <a href="#" class="dashboard-button">Access Your Dashboard</a>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 30px; color: #546e7a; font-size: 16px;">
+                        Welcome to the <strong>Salon Booking System</strong> family!<br>
+                        We're excited to help your business grow and succeed.
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <div class="footer-text">
+                        This is an automated notification from the Salon Booking System.
+                    </div>
+                    <div class="footer-text">
+                        If you need any assistance, please contact our support team.
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+      `,
+      text: `
+        Salon Booking System - Congratulations!
+        
+        Dear ${salonName} Team,
+        
+        Excellent news! Your salon has been successfully approved and is now live on our platform.
+        
+        Status: APPROVED AND ACTIVE
+        
+        You can now:
+        - Access your complete salon dashboard
+        - Manage your services and pricing
+        - Add professional staff members
+        - Set your available time slots
+        - Accept and manage customer bookings
+        
+        Welcome to the Salon Booking System family!
+        
+        Best regards,
+        Salon Booking System Team
+      `
+    };
+  },
+
+  salonRejectionNotification: (data) => {
+    const { salonName, ownerEmail, rejectionReason } = data;
+    return {
+      subject: `❌ Salon Registration Update - ${salonName}`,
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Salon Registration Update</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                    line-height: 1.6; 
+                    color: #2c3e50; 
+                    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .email-container { 
+                    max-width: 650px; 
+                    margin: 40px auto; 
+                    background: #ffffff; 
+                    border-radius: 16px; 
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                }
+                .header { 
+                    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); 
+                    color: #ffffff; 
+                    padding: 40px 30px; 
+                    text-align: center;
+                    position: relative;
+                }
+                .header h1 { 
+                    font-size: 28px; 
+                    font-weight: 600; 
+                    margin-bottom: 8px;
+                    position: relative;
+                    z-index: 1;
+                }
+                .info-icon { 
+                    font-size: 60px; 
+                    margin-bottom: 20px;
+                    position: relative;
+                    z-index: 1;
+                }
+                .content { padding: 40px 30px; }
+                .greeting { 
+                    font-size: 18px; 
+                    color: #2c3e50; 
+                    margin-bottom: 16px;
+                    font-weight: 500;
+                }
+                .intro-text { 
+                    color: #546e7a; 
+                    margin-bottom: 30px; 
+                    font-size: 16px;
+                }
+                .salon-name {
+                    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                    font-size: 24px;
+                    font-weight: 700;
+                    text-align: center;
+                    margin-bottom: 20px;
+                    color: #ff6b6b;
+                }
+                .status-card { 
+                    background: linear-gradient(135deg, #fff3f3 0%, #ffe6e6 100%); 
+                    border: 2px solid #ff6b6b;
+                    padding: 25px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                    text-align: center;
+                    box-shadow: 0 4px 20px rgba(255,107,107,0.08);
+                }
+                .status-text { 
+                    color: #c62828; 
+                    font-weight: bold; 
+                    font-size: 18px;
+                    margin-bottom: 10px;
+                }
+                .reason-card { 
+                    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                    border-left: 4px solid #ff6b6b;
+                    padding: 25px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                }
+                .reason-title { 
+                    font-size: 18px; 
+                    font-weight: 600; 
+                    color: #c62828; 
+                    margin-bottom: 16px;
+                }
+                .reason-text {
+                    color: #37474f;
+                    font-size: 16px;
+                    font-style: italic;
+                    background: #ffffff;
+                    padding: 15px;
+                    border-radius: 8px;
+                    border-left: 3px solid #ff6b6b;
+                }
+                .next-steps { 
+                    background: linear-gradient(135deg, #f1f8ff 0%, #e3f2fd 100%); 
+                    border-left: 4px solid #00AEEF;
+                    padding: 25px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                }
+                .steps-title { 
+                    font-size: 18px; 
+                    font-weight: 600; 
+                    color: #1a237e; 
+                    margin-bottom: 16px;
+                }
+                .steps-list { 
+                    list-style: none; 
+                    padding: 0;
+                }
+                .steps-list li { 
+                    color: #37474f; 
+                    margin: 12px 0; 
+                    padding-left: 25px;
+                    position: relative;
+                    line-height: 1.5;
+                }
+                .steps-list li::before {
+                    content: '💡';
+                    position: absolute;
+                    left: 0;
+                    font-size: 16px;
+                }
+                .contact-info { 
+                    background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%); 
+                    border: 1px solid #c8e6c9;
+                    padding: 20px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                }
+                .contact-title {
+                    color: #2e7d32;
+                    font-size: 16px;
+                    font-weight: 600;
+                    margin-bottom: 12px;
+                }
+                .contact-details {
+                    color: #388e3c;
+                    font-size: 14px;
+                    line-height: 1.6;
+                }
+                .footer { 
+                    background: #f8f9fa; 
+                    padding: 30px; 
+                    text-align: center; 
+                    border-top: 1px solid #e9ecef;
+                }
+                .footer-text { 
+                    color: #6c757d; 
+                    font-size: 14px; 
+                    line-height: 1.5;
+                    margin-bottom: 8px;
+                }
+                @media (max-width: 600px) {
+                    .email-container { margin: 20px 10px; }
+                    .content { padding: 30px 20px; }
+                    .header { padding: 30px 20px; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <div class="header">
+                    <div class="info-icon">📋</div>
+                    <h1>Registration Update</h1>
+                </div>
+                
+                <div class="content">
+                    <div class="greeting">Dear <strong>${salonName}</strong> Team,</div>
+                    <div class="intro-text">
+                        Thank you for your interest in joining the Salon Booking System. After reviewing your application, we need to inform you about the status of your registration.
+                    </div>
+
+                    <div class="salon-name">${salonName}</div>
+                    
+                    <div class="status-card">
+                        <div class="status-text">❌ Registration Not Approved</div>
+                        <div>Your salon registration requires some adjustments before approval</div>
+                    </div>
+
+                    <div class="reason-card">
+                        <div class="reason-title">Reason for Not Approving:</div>
+                        <div class="reason-text">${rejectionReason || 'No specific reason provided'}</div>
+                    </div>
+
+                    <div class="next-steps">
+                        <div class="steps-title">What you can do next:</div>
+                        <ul class="steps-list">
+                            <li>Review the reason mentioned above carefully</li>
+                            <li>Make the necessary adjustments to your salon information</li>
+                            <li>Contact our support team if you need clarification</li>
+                            <li>Resubmit your application once the issues are addressed</li>
+                            <li>We're here to help you succeed on our platform</li>
+                        </ul>
+                    </div>
+
+                    <div class="contact-info">
+                        <div class="contact-title">Need Help? Contact Our Support Team</div>
+                        <div class="contact-details">
+                            📧 <strong>Email:</strong> support@salonbookingsystem.com<br>
+                            📞 <strong>Phone:</strong> +94 11 123 4567<br>
+                            🕒 <strong>Support Hours:</strong> Monday - Friday, 9:00 AM - 6:00 PM<br><br>
+                            Our team is ready to assist you in meeting our requirements and joining our platform.
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 30px; color: #546e7a; font-size: 16px;">
+                        We appreciate your interest in <strong>Salon Booking System</strong><br>
+                        and look forward to welcoming you once the requirements are met.
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <div class="footer-text">
+                        This is an automated notification from the Salon Booking System.
+                    </div>
+                    <div class="footer-text">
+                        Please contact our support team if you have any questions.
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+      `,
+      text: `
+        Salon Booking System - Registration Update
+        
+        Dear ${salonName} Team,
+        
+        Thank you for your interest in joining the Salon Booking System. 
+        After reviewing your application, your registration was not approved.
+        
+        Reason: ${rejectionReason || 'No specific reason provided'}
+        
+        What you can do next:
+        - Review the reason mentioned above
+        - Make necessary adjustments to your salon information
+        - Contact our support team if you need clarification
+        - Resubmit your application once issues are addressed
+        
+        Contact Support:
+        Email: support@salonbookingsystem.com
+        Phone: +94 11 123 4567
+        
+        We're here to help you succeed on our platform.
+        
+        Best regards,
+        Salon Booking System Team
+      `
+    };
   }
 };
 
@@ -1244,6 +1741,37 @@ class NotificationService {
       return await this.sendEmail(ownerEmail, 'salonRegistrationConfirmation', {
         salonName,
         ownerEmail
+      });
+    }
+    
+    return { success: false, error: 'Owner email not provided' };
+  }
+
+  // Send salon approval notification email
+  async sendSalonApprovalNotification(salonData) {
+    const { salonName, ownerEmail } = salonData;
+    
+    if (ownerEmail) {
+      console.log(`📧 Sending salon approval notification to: ${ownerEmail}`);
+      return await this.sendEmail(ownerEmail, 'salonApprovalNotification', {
+        salonName,
+        ownerEmail
+      });
+    }
+    
+    return { success: false, error: 'Owner email not provided' };
+  }
+
+  // Send salon rejection notification email
+  async sendSalonRejectionNotification(salonData) {
+    const { salonName, ownerEmail, rejectionReason } = salonData;
+    
+    if (ownerEmail) {
+      console.log(`📧 Sending salon rejection notification to: ${ownerEmail}`);
+      return await this.sendEmail(ownerEmail, 'salonRejectionNotification', {
+        salonName,
+        ownerEmail,
+        rejectionReason
       });
     }
     
