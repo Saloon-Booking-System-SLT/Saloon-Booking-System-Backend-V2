@@ -167,10 +167,11 @@ app.get('/api/health', (req, res) => {
 // Health check endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'Salon Booking System Backend API',
+    message: 'Salon Booking System Backend API - Updated',
     status: 'running',
     timestamp: new Date().toISOString(),
     cors: 'enabled',
+    version: '1.1.0',
     allowedOrigins: allowedOrigins
   });
 });
