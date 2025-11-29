@@ -30,6 +30,8 @@ const allowedOrigins = [
   'http://127.0.0.1:3000', // Alternative localhost
   'https://saloon-booking-system-frontend-web-eight.vercel.app', // Your actual Vercel URL
   'https://saloon-booking-system-frontend-web-v2.vercel.app', // Alternative domain pattern
+  'https://vercel.app', // Any Vercel subdomain
+  'https://saloon-booking-system-frontend-web-git-main-saloon-booking-system-slt.vercel.app' // Git branch deployments
 ];
 
 // Add production frontend URL from environment variable
@@ -53,18 +55,25 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // Check if origin matches Vercel pattern
-    if (origin.includes('vercel.app') || origin.includes('saloon-booking-system')) {
+    // Check if origin matches Vercel pattern (more flexible)
+    if (origin.includes('vercel.app') && origin.includes('saloon-booking-system')) {
       console.log('✅ Vercel domain detected - allowing request');
       return callback(null, true);
     }
     
+    // For development - allow any localhost
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      console.log('✅ Local development - allowing request');
+      return callback(null, true);
+    }
+    
     console.log('❌ CORS blocked origin:', origin);
+    console.log('📋 Allowed origins:', allowedOrigins);
     return callback(new Error(`CORS policy violation: Origin ${origin} not allowed`));
   },
-  credentials: false, // Set to false for hosted environments
+  credentials: true, // Allow credentials for authentication
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with', 'Access-Control-Allow-Origin'],
   optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
 
@@ -104,6 +113,27 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     origin: req.headers.origin,
     userAgent: req.headers['user-agent']
+  });
+});
+
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Salon Booking System Backend API',
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    cors: 'enabled',
+    allowedOrigins: allowedOrigins
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
 });
 
