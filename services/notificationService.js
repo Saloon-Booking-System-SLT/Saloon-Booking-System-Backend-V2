@@ -1374,6 +1374,415 @@ const emailTemplates = {
         Salon Booking System Team
       `
     };
+  },
+
+  appointmentCompletion: (data) => {
+    const { customerName, salonName, serviceName, date, time, totalAmount, appointmentId } = data;
+    return {
+      subject: `✅ Service Completed - ${salonName}`,
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Service Completed</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                    line-height: 1.6; 
+                    color: #2c3e50; 
+                    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .email-container { 
+                    max-width: 650px; 
+                    margin: 40px auto; 
+                    background: #ffffff; 
+                    border-radius: 16px; 
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                }
+                .header { 
+                    background: linear-gradient(135deg, #00C851 0%, #1FAF38 100%); 
+                    color: #ffffff; 
+                    padding: 40px 30px; 
+                    text-align: center;
+                }
+                .header h1 { 
+                    font-size: 28px; 
+                    font-weight: 600; 
+                    margin-bottom: 8px;
+                }
+                .success-icon { 
+                    font-size: 60px; 
+                    margin-bottom: 20px;
+                }
+                .content { padding: 40px 30px; }
+                .greeting { 
+                    font-size: 18px; 
+                    color: #2c3e50; 
+                    margin-bottom: 16px;
+                    font-weight: 500;
+                }
+                .intro-text { 
+                    color: #546e7a; 
+                    margin-bottom: 30px; 
+                    font-size: 16px;
+                }
+                .salon-name {
+                    background: linear-gradient(135deg, #00C851, #1FAF38);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                    font-size: 24px;
+                    font-weight: 700;
+                    text-align: center;
+                    margin-bottom: 20px;
+                    color: #00C851;
+                }
+                .service-card { 
+                    background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%); 
+                    border: 1px solid #c8e6c9;
+                    padding: 25px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                    text-align: center;
+                }
+                .service-details {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 16px;
+                    margin: 20px 0;
+                }
+                .detail-item {
+                    padding: 16px;
+                    background: #ffffff;
+                    border-radius: 8px;
+                    border-left: 4px solid #00C851;
+                }
+                .detail-label {
+                    font-size: 12px;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    color: #78909c;
+                    margin-bottom: 4px;
+                    font-weight: 600;
+                }
+                .detail-value {
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: #263238;
+                }
+                .thank-you {
+                    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+                    padding: 25px;
+                    border-radius: 12px;
+                    margin: 25px 0;
+                    text-align: center;
+                    border: 1px solid #ffcc02;
+                }
+                .footer { 
+                    background: #f8f9fa; 
+                    padding: 30px; 
+                    text-align: center; 
+                    border-top: 1px solid #e9ecef;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <div class="header">
+                    <div class="success-icon">✅</div>
+                    <h1>Service Completed!</h1>
+                </div>
+                
+                <div class="content">
+                    <div class="greeting">Dear ${customerName},</div>
+                    <div class="intro-text">
+                        Thank you for choosing our services! Your appointment has been successfully completed.
+                    </div>
+
+                    <div class="salon-name">${salonName}</div>
+                    
+                    <div class="service-card">
+                        <h3 style="color: #2e7d32; margin-bottom: 20px;">Service Summary</h3>
+                        <div class="service-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Service</div>
+                                <div class="detail-value">${serviceName}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Date</div>
+                                <div class="detail-value">${date}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Time</div>
+                                <div class="detail-value">${time}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Total Amount</div>
+                                <div class="detail-value">LKR ${totalAmount}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; color: #388e3c; font-weight: 600;">
+                            Appointment ID: ${appointmentId}
+                        </div>
+                    </div>
+
+                    <div class="thank-you">
+                        <h3 style="color: #e65100; margin-bottom: 15px;">Thank You!</h3>
+                        <p style="color: #bf360c;">We hope you enjoyed your experience with us. Your satisfaction is our priority, and we look forward to serving you again!</p>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 30px; color: #546e7a; font-size: 16px;">
+                        Thank you for choosing <strong>${salonName}</strong>!<br>
+                        We appreciate your business.
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <div style="color: #6c757d; font-size: 14px; margin-bottom: 8px;">
+                        This is an automated notification from the Salon Booking System.
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+      `,
+      text: `
+        Service Completed!
+        
+        Dear ${customerName},
+        
+        Thank you for choosing our services! Your appointment has been successfully completed.
+        
+        Service Summary:
+        Salon: ${salonName}
+        Service: ${serviceName}
+        Date: ${date}
+        Time: ${time}
+        Total Amount: LKR ${totalAmount}
+        Appointment ID: ${appointmentId}
+        
+        We hope you enjoyed your experience and look forward to serving you again!
+        
+        Thank you,
+        ${salonName}
+      `
+    };
+  },
+
+  appointmentCancellation: (data) => {
+    const { customerName, salonName, serviceName, date, time, appointmentId, cancellationReason } = data;
+    return {
+      subject: `❌ Appointment Cancelled - ${salonName}`,
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Appointment Cancelled</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                    line-height: 1.6; 
+                    color: #2c3e50; 
+                    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .email-container { 
+                    max-width: 650px; 
+                    margin: 40px auto; 
+                    background: #ffffff; 
+                    border-radius: 16px; 
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                }
+                .header { 
+                    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); 
+                    color: #ffffff; 
+                    padding: 40px 30px; 
+                    text-align: center;
+                }
+                .header h1 { 
+                    font-size: 28px; 
+                    font-weight: 600; 
+                    margin-bottom: 8px;
+                }
+                .cancel-icon { 
+                    font-size: 60px; 
+                    margin-bottom: 20px;
+                }
+                .content { padding: 40px 30px; }
+                .greeting { 
+                    font-size: 18px; 
+                    color: #2c3e50; 
+                    margin-bottom: 16px;
+                    font-weight: 500;
+                }
+                .intro-text { 
+                    color: #546e7a; 
+                    margin-bottom: 30px; 
+                    font-size: 16px;
+                }
+                .salon-name {
+                    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                    font-size: 24px;
+                    font-weight: 700;
+                    text-align: center;
+                    margin-bottom: 20px;
+                    color: #ff6b6b;
+                }
+                .cancellation-card { 
+                    background: linear-gradient(135deg, #fff3f3 0%, #ffe6e6 100%); 
+                    border: 1px solid #ffcccb;
+                    padding: 25px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                }
+                .appointment-details {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 16px;
+                    margin: 20px 0;
+                }
+                .detail-item {
+                    padding: 16px;
+                    background: #ffffff;
+                    border-radius: 8px;
+                    border-left: 4px solid #ff6b6b;
+                }
+                .detail-label {
+                    font-size: 12px;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    color: #78909c;
+                    margin-bottom: 4px;
+                    font-weight: 600;
+                }
+                .detail-value {
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: #263238;
+                }
+                .reason-section {
+                    background: #fff3cd;
+                    border: 1px solid #ffeaa7;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                }
+                .apology-section {
+                    background: linear-gradient(135deg, #f1f8ff 0%, #e3f2fd 100%);
+                    padding: 25px;
+                    border-radius: 12px;
+                    margin: 25px 0;
+                    text-align: center;
+                    border-left: 4px solid #00AEEF;
+                }
+                .footer { 
+                    background: #f8f9fa; 
+                    padding: 30px; 
+                    text-align: center; 
+                    border-top: 1px solid #e9ecef;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <div class="header">
+                    <div class="cancel-icon">❌</div>
+                    <h1>Appointment Cancelled</h1>
+                </div>
+                
+                <div class="content">
+                    <div class="greeting">Dear ${customerName},</div>
+                    <div class="intro-text">
+                        We regret to inform you that your appointment has been cancelled. We apologize for any inconvenience this may cause.
+                    </div>
+
+                    <div class="salon-name">${salonName}</div>
+                    
+                    <div class="cancellation-card">
+                        <h3 style="color: #c62828; margin-bottom: 20px; text-align: center;">Cancelled Appointment Details</h3>
+                        <div class="appointment-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Service</div>
+                                <div class="detail-value">${serviceName}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Date</div>
+                                <div class="detail-value">${date}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Time</div>
+                                <div class="detail-value">${time}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Appointment ID</div>
+                                <div class="detail-value">${appointmentId}</div>
+                            </div>
+                        </div>
+                        
+                        ${cancellationReason ? `
+                        <div class="reason-section">
+                            <strong style="color: #e65100;">Reason for Cancellation:</strong><br>
+                            <span style="color: #bf360c; font-style: italic;">${cancellationReason}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="apology-section">
+                        <h3 style="color: #1a237e; margin-bottom: 15px;">We Apologize</h3>
+                        <p style="color: #37474f;">We understand this cancellation may cause inconvenience. Please feel free to reschedule your appointment at your convenience. We value your business and look forward to serving you in the future.</p>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 30px; color: #546e7a; font-size: 16px;">
+                        Thank you for your understanding.<br>
+                        <strong>${salonName}</strong>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <div style="color: #6c757d; font-size: 14px; margin-bottom: 8px;">
+                        This is an automated notification from the Salon Booking System.
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+      `,
+      text: `
+        Appointment Cancelled
+        
+        Dear ${customerName},
+        
+        We regret to inform you that your appointment has been cancelled.
+        
+        Cancelled Appointment Details:
+        Salon: ${salonName}
+        Service: ${serviceName}
+        Date: ${date}
+        Time: ${time}
+        Appointment ID: ${appointmentId}
+        
+        ${cancellationReason ? `Reason: ${cancellationReason}` : ''}
+        
+        We apologize for any inconvenience and look forward to serving you in the future.
+        
+        Thank you for your understanding,
+        ${salonName}
+      `
+    };
   }
 };
 
@@ -1397,6 +1806,16 @@ const smsTemplates = {
   feedbackRequest: (data) => {
     const { customerName, salonName, feedbackUrl } = data;
     return `💭 Hi ${customerName}! How was your experience at ${salonName}? Share your feedback: ${feedbackUrl}`;
+  },
+
+  appointmentCompletion: (data) => {
+    const { customerName, salonName, serviceName, appointmentId } = data;
+    return `✅ Service Complete! Hi ${customerName}, your ${serviceName} at ${salonName} has been completed. Thank you for choosing us! ID: ${appointmentId}`;
+  },
+
+  appointmentCancellation: (data) => {
+    const { customerName, salonName, serviceName, date, appointmentId } = data;
+    return `❌ Appointment Cancelled: Hi ${customerName}, your ${serviceName} at ${salonName} on ${date} has been cancelled. We apologize for the inconvenience. ID: ${appointmentId}`;
   }
 };
 
@@ -1776,6 +2195,91 @@ class NotificationService {
     }
     
     return { success: false, error: 'Owner email not provided' };
+  }
+
+  // Send appointment completion notification (email + SMS)
+  async sendAppointmentCompletion(appointmentData) {
+    const {
+      customerEmail,
+      customerPhone,
+      customerName,
+      salonName,
+      serviceName,
+      date,
+      time,
+      totalAmount,
+      appointmentId
+    } = appointmentData;
+
+    const results = { email: null, sms: null };
+
+    // Send email notification
+    if (customerEmail) {
+      results.email = await this.sendEmail(customerEmail, 'appointmentCompletion', {
+        customerName,
+        salonName,
+        serviceName,
+        date,
+        time,
+        totalAmount,
+        appointmentId
+      });
+    }
+
+    // Send SMS notification
+    if (customerPhone) {
+      results.sms = await this.sendSMS(customerPhone, 'appointmentCompletion', {
+        customerName,
+        salonName,
+        serviceName,
+        appointmentId
+      });
+    }
+
+    return results;
+  }
+
+  // Send appointment cancellation notification (email + SMS)
+  async sendAppointmentCancellation(appointmentData) {
+    const {
+      customerEmail,
+      customerPhone,
+      customerName,
+      salonName,
+      serviceName,
+      date,
+      time,
+      appointmentId,
+      cancellationReason
+    } = appointmentData;
+
+    const results = { email: null, sms: null };
+
+    // Send email notification
+    if (customerEmail) {
+      results.email = await this.sendEmail(customerEmail, 'appointmentCancellation', {
+        customerName,
+        salonName,
+        serviceName,
+        date,
+        time,
+        appointmentId,
+        cancellationReason
+      });
+    }
+
+    // Send SMS notification
+    if (customerPhone) {
+      results.sms = await this.sendSMS(customerPhone, 'appointmentCancellation', {
+        customerName,
+        salonName,
+        serviceName,
+        date,
+        appointmentId
+      });
+    }
+
+    return results;
   }
 
   // Bulk email sending for promotions

@@ -378,27 +378,55 @@ router.patch("/:id/status", async (req, res) => {
 
     if (!updated) return res.status(404).json({ message: "Appointment not found" });
 
+    // Common notification data
+    const notificationData = {
+      customerEmail: updated.user?.email,
+      customerPhone: updated.user?.phone,
+      customerName: updated.user?.name || 'Guest',
+      salonName: updated.salonId?.name || 'Salon',
+      serviceName: updated.services[0]?.name || 'Service',
+      date: dayjs(updated.date).format('MMMM DD, YYYY'),
+      time: updated.startTime,
+      totalAmount: updated.services[0]?.price || 0,
+      appointmentId: updated._id.toString().slice(-6).toUpperCase()
+    };
+
     // Send confirmation email when appointment is confirmed
     if (status === "confirmed" && updated.user?.email) {
       try {
         console.log('📧 Sending confirmation notification for appointment:', updated._id);
-        
-        const notificationData = {
-          customerEmail: updated.user.email,
-          customerPhone: updated.user.phone,
-          customerName: updated.user.name || 'Guest',
-          salonName: updated.salonId?.name || 'Salon',
-          serviceName: updated.services[0]?.name || 'Service',
-          date: dayjs(updated.date).format('MMMM DD, YYYY'),
-          time: updated.startTime,
-          totalAmount: updated.services[0]?.price || 0,
-          appointmentId: updated._id.toString().slice(-6).toUpperCase()
-        };
-
         const confirmationResult = await notificationService.sendAppointmentConfirmation(notificationData);
         console.log('📧 Confirmation notification result:', confirmationResult);
       } catch (notificationError) {
         console.error('❌ Confirmation notification error:', notificationError);
+        // Don't fail the status update if notification fails
+      }
+    }
+
+    // Send completion email when appointment is completed
+    if (status === "completed" && updated.user?.email) {
+      try {
+        console.log('📧 Sending completion notification for appointment:', updated._id);
+        const completionResult = await notificationService.sendAppointmentCompletion(notificationData);
+        console.log('📧 Completion notification result:', completionResult);
+      } catch (notificationError) {
+        console.error('❌ Completion notification error:', notificationError);
+        // Don't fail the status update if notification fails
+      }
+    }
+
+    // Send cancellation email when appointment is cancelled
+    if ((status === "cancelled" || status === "cancel") && updated.user?.email) {
+      try {
+        console.log('📧 Sending cancellation notification for appointment:', updated._id);
+        const cancellationData = {
+          ...notificationData,
+          cancellationReason: req.body.cancellationReason || null
+        };
+        const cancellationResult = await notificationService.sendAppointmentCancellation(cancellationData);
+        console.log('📧 Cancellation notification result:', cancellationResult);
+      } catch (notificationError) {
+        console.error('❌ Cancellation notification error:', notificationError);
         // Don't fail the status update if notification fails
       }
     }
