@@ -23,15 +23,19 @@ const salonSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // ✅ ADD THESE FIELDS FOR APPROVAL SYSTEM
   approvalStatus: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
-    default: 'pending'
+    default: 'approved' // ✅ Set to 'approved' for existing salons, or 'pending' for new workflow
   },
   rejectionReason: {
     type: String,
     default: null
   },
+  // Reset password fields
+  resetPasswordToken: String,
+  resetPasswordExpires: Date,
   createdAt: {
     type: Date,
     default: Date.now
