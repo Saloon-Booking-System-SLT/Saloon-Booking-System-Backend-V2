@@ -35,6 +35,7 @@ const requireRole = (roles) => {
   };
 };
 
+
 // Specific role middlewares
 const requireCustomer = requireRole(['customer']);
 const requireOwner = requireRole(['owner']);
