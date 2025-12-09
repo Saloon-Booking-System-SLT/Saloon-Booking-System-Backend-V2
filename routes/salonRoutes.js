@@ -18,11 +18,11 @@ let emailTransporter;
 
 try {
   const emailUser = process.env.EMAIL_USER;
-  const emailPass = process.env.EMAIL_PASS;
+  const emailPass = process.env.EMAIL_PASSWORD;
   
   console.log('🔧 Email Configuration Check:');
   console.log('   EMAIL_USER exists:', !!emailUser);
-  console.log('   EMAIL_PASS exists:', !!emailPass);
+  console.log('   EMAIL_PASSWORD exists:', !!emailPass);
   
   if (!emailUser || !emailPass) {
     throw new Error('Email credentials not found in environment variables');
@@ -48,7 +48,7 @@ try {
   });
 } catch (error) {
   console.error('❌ Email transporter setup failed:', error.message);
-  console.log('💡 Please check your .env file and ensure EMAIL_USER and EMAIL_PASS are set');
+  console.log('💡 Please check your .env file and ensure EMAIL_USER and EMAIL_PASSWORD are set');
   emailTransporter = null;
 }
 
