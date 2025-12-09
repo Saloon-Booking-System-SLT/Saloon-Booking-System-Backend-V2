@@ -600,6 +600,50 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// ✅ Get owner's salon information (protected - owner only)
+router.get("/owner/my-salon", authenticateToken, requireOwner, async (req, res) => {
+  try {
+    console.log("🔍 Fetching salon for owner ID:", req.user.userId);
+    
+    // The salon ID is the same as the owner's user ID
+    const salon = await Salon.findById(req.user.userId).select('-password');
+    
+    if (!salon) {
+      console.log("❌ No salon found for owner:", req.user.userId);
+      return res.status(404).json({ 
+        message: "No salon found for your account. Please contact admin.",
+        success: false 
+      });
+    }
+
+    console.log("✅ Salon found:", salon.name);
+    
+    // Return salon data in the same format as profile endpoint
+    res.json({
+      _id: salon._id,
+      name: salon.name,
+      email: salon.email,
+      phone: salon.phone,
+      location: salon.location,
+      services: salon.services,
+      workingHours: salon.workingHours,
+      image: salon.image,
+      salonType: salon.salonType,
+      coordinates: salon.coordinates,
+      approvalStatus: salon.approvalStatus,
+      rejectionReason: salon.rejectionReason,
+      role: salon.role
+    });
+  } catch (err) {
+    console.error("❌ Error fetching owner salon:", err);
+    res.status(500).json({ 
+      message: "Server error while fetching salon information",
+      error: err.message 
+    });
+  }
+});
+
+
 // ✅ Get all salons (public) - Only show approved salons
 router.get("/", async (req, res) => {
   try {
@@ -787,5 +831,7 @@ router.delete("/cleanup/duplicates", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+
 
 module.exports = router;
