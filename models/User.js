@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema({
   photoURL: String,
   phone: String,
   gender: String,
+  ageCategory: String, // Age category for booking: 'Gentlemen', 'Lady', 'Teenager/boy', 'Teenager/girl', 'Kid/boy', 'Kid/girl'
   address: [addressSchema],
   role: {
     type: String,

@@ -122,6 +122,7 @@ router.get('/profile', authenticateToken, requireCustomer, async (req, res) => {
         phone: user.phone,
         photoURL: user.photoURL,
         gender: user.gender,
+        ageCategory: user.ageCategory,
         address: user.address,
         role: user.role
       }
@@ -158,6 +159,7 @@ router.put('/:id', authenticateToken, requireCustomer, async (req, res) => {
         phone: updatedUser.phone,
         photoURL: updatedUser.photoURL,
         gender: updatedUser.gender,
+        ageCategory: updatedUser.ageCategory,
         address: updatedUser.address,
         role: updatedUser.role
       }
