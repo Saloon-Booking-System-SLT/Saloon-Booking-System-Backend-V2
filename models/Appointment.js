@@ -21,7 +21,6 @@ const appointmentSchema = new mongoose.Schema({
   startTime: String, // HH:mm
   endTime: String,   // HH:mm
   status: { type: String, default: "pending" },
-  createdAt: { type: Date, default: Date.now },
 
   // Add group booking fields
   isGroupBooking: { type: Boolean, default: false },
@@ -30,6 +29,8 @@ const appointmentSchema = new mongoose.Schema({
     name: String,
     category: String
   }
+}, {
+  timestamps: true // Automatically adds createdAt and updatedAt fields
 });
 
 
