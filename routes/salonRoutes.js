@@ -648,19 +648,33 @@ router.get("/owner/my-salon", authenticateToken, requireOwner, async (req, res) 
 router.get("/", async (req, res) => {
   try {
     const { location } = req.query;
+    const { page, limit, skip } = require('../utils/queryOptimizer').getPagination(req.query);
+    
     const query = { 
       approvalStatus: 'approved',
       ...(location && { location: { $regex: location, $options: "i" } })
     };
-    const salons = await Salon.find(query).select('-password');
-    res.json(salons);
+    
+    const [salons, total] = await Promise.all([
+      Salon.find(query)
+        .select('-password -__v')
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Salon.countDocuments(query)
+    ]);
+    
+    res.json({
+      data: salons,
+      pagination: require('../utils/queryOptimizer').getPaginationMeta(total, page, limit)
+    });
   } catch (err) {
     console.error("Get salons error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// ✅ Nearby salons (public)
+// ✅ Nearby salons (public) - Memory optimized
 router.get("/nearby", async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) {
@@ -668,7 +682,16 @@ router.get("/nearby", async (req, res) => {
   }
 
   try {
-    const allSalons = await Salon.find({ approvalStatus: 'approved' }).select('-password');
+    // Use pagination to limit loaded salons
+    const { page = 1, limit = 100 } = req.query;
+    const skip = (page - 1) * limit;
+    
+    const approvedSalons = await Salon.find({ approvalStatus: 'approved' })
+      .select('_id name location -password -__v')
+      .skip(skip)
+      .limit(Math.min(limit, 100))
+      .lean();
+
     const districts = {
       colombo: { lat: 6.9271, lng: 79.8612 },
       kandy: { lat: 7.2906, lng: 80.6337 },
@@ -677,10 +700,7 @@ router.get("/nearby", async (req, res) => {
       matara: { lat: 5.9549, lng: 80.5549 },
       kurunegala: { lat: 7.4868, lng: 80.3659 },
       anuradhapura: { lat: 8.3114, lng: 80.4037 },
-      negombo: { lat: 7.2083, lng: 79.8358 },
-      ratnapura: { lat: 6.6828, lng: 80.3992 },
-      batticaloa: { lat: 7.7184, lng: 81.7001 },
-      "nuwara eliya": { lat: 6.9497, lng: 80.7891 },
+      negombo: { lat: 7.2083, lng: 79.8358 }
     };
 
     const getDistance = (lat1, lng1, lat2, lng2) => {
@@ -695,18 +715,23 @@ router.get("/nearby", async (req, res) => {
       return R * c;
     };
 
-    const nearbySalons = [];
-    for (let salon of allSalons) {
-      const salonLocation = salon.location?.toLowerCase() || "";
-      for (let district in districts) {
-        if (salonLocation.includes(district)) {
-          const dist = getDistance(parseFloat(lat), parseFloat(lng), districts[district].lat, districts[district].lng);
-          if (dist <= 25) nearbySalons.push(salon);
+    const nearbySalons = approvedSalons
+      .filter(salon => {
+        const salonLocation = salon.location?.toLowerCase() || "";
+        for (let district in districts) {
+          if (salonLocation.includes(district)) {
+            const dist = getDistance(parseFloat(lat), parseFloat(lng), districts[district].lat, districts[district].lng);
+            if (dist <= 25) return true;
+          }
         }
-      }
-    }
+        return false;
+      })
+      .slice(0, 50); // Limit response to 50 results
 
-    res.json(nearbySalons);
+    res.json({
+      data: nearbySalons,
+      count: nearbySalons.length
+    });
   } catch (err) {
     console.error("Nearby salons error:", err);
     res.status(500).json({ message: "Server error" });

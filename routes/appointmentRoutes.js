@@ -87,26 +87,23 @@ router.get("/salon/:id", async (req, res) => {
     const salonId = req.params.id;
     const { date, professionalId } = req.query;
     
-    console.log(`🔍 Fetching appointments for salon: ${salonId}`);
-    console.log(`📅 Date filter: ${date || 'none'}`);
-    console.log(`👨‍💼 Professional filter: ${professionalId || 'none'}`);
-    
     const query = { salonId: salonId };
     if (date) query.date = date;
     if (professionalId) query.professionalId = professionalId;
 
-    console.log('🔎 Query object:', JSON.stringify(query));
-
     const appointments = await Appointment.find(query)
+      .select('date startTime endTime status services salonId professionalId')
       .sort({ date: 1, startTime: 1 })
-      .populate("salonId")
-      .populate("professionalId");
+      .lean()
+      .maxTimeMS(10000)
+      .limit(1000); // Prevent loading too many appointments
 
-    console.log(`✅ Found ${appointments.length} appointments for salon ${salonId}`);
-
-    res.json(appointments);
+    res.json({
+      data: appointments,
+      count: appointments.length
+    });
   } catch (err) {
-    console.error("❌ Error fetching appointments:", err);
+    console.error("Appointment fetch error:", err.message);
     res.status(500).json({ message: "Failed to fetch appointments", error: err.message });
   }
 });
@@ -114,33 +111,28 @@ router.get("/salon/:id", async (req, res) => {
 // 🧪 Test route to check all appointments in database
 router.get("/test/all", async (req, res) => {
   try {
-    console.log("🧪 Testing database connection...");
+    const { page = 1, limit = 20 } = req.query;
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(parseInt(limit) || 20, 50);
+    const skip = (pageNum - 1) * limitNum;
     
-    const allAppointments = await Appointment.find();
-    const totalCount = await Appointment.countDocuments();
-    
-    console.log(`📊 Total appointments in database: ${totalCount}`);
-    
-    // Group by salonId for debugging
-    const bySalon = {};
-    allAppointments.forEach(appt => {
-      const salonId = appt.salonId?.toString() || 'unknown';
-      if (!bySalon[salonId]) bySalon[salonId] = 0;
-      bySalon[salonId]++;
-    });
-    
-    console.log('📊 Appointments by salon:', bySalon);
+    const [appointments, totalCount] = await Promise.all([
+      Appointment.find()
+        .select('salonId date time status services')
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+        .maxTimeMS(10000),
+      Appointment.countDocuments()
+    ]);
     
     res.json({
       total: totalCount,
-      bySalon,
-      sample: allAppointments.slice(0, 3).map(a => ({
-        id: a._id,
-        salonId: a.salonId,
-        date: a.date,
-        status: a.status,
-        user: a.user?.name
-      }))
+      page: pageNum,
+      pages: Math.ceil(totalCount / limitNum),
+      count: appointments.length,
+      hasMore: skip + appointments.length < totalCount
+    });
     });
   } catch (err) {
     console.error("❌ Test route error:", err);

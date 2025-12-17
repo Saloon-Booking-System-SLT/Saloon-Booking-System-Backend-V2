@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const path = require("path");
@@ -19,44 +20,23 @@ const familybookingRoutes = require("./routes/familybookingRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const promotionRoutes = require("./routes/promotionRoutes");
 const loyaltyRoutes = require("./routes/loyaltyRoutes");
-// const paymentRoutes = require("./routes/paymentRoutes");
 
 // Initialize Express app
 const app = express();
 
-// CORS Configuration
-const allowedOrigins = [
-  'http://localhost:3000', // Local development
-  'http://127.0.0.1:3000', // Alternative localhost
-  'https://saloon-booking-system-frontend-web-eight.vercel.app', // Your actual Vercel URL
-  'https://saloon-booking-system-frontend-web-v2.vercel.app', // Alternative domain pattern
-  'https://vercel.app', // Any Vercel subdomain
-  'https://saloon-booking-system-frontend-web-git-main-saloon-booking-system-slt.vercel.app' // Git branch deployments
-];
-
-// Add production frontend URL from environment variable
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
-
-// CORS Configuration - More permissive for production
+// CORS Configuration - Render Free Tier Safe
 const corsOptions = {
   origin: function (origin, callback) {
-    console.log('🌐 CORS Request from origin:', origin);
-    
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
-      console.log('✅ No origin - allowing request');
       return callback(null, true);
     }
     
-    // For production - be more permissive with Vercel domains
+    // For production - be permissive with Vercel domains
     if (process.env.NODE_ENV === 'production') {
-      // Allow any Vercel app domain
       if (origin.includes('vercel.app') || 
           origin.includes('saloon-booking-system') || 
           origin.includes('localhost')) {
-        console.log('✅ Production: Allowed domain - allowing request');
         return callback(null, true);
       }
     }
@@ -67,12 +47,10 @@ const corsOptions = {
       'http://127.0.0.1:3000',
       'https://saloon-booking-system-frontend-web-eight.vercel.app',
       'https://saloon-booking-system-frontend-web-v2.vercel.app',
-      'https://vercel.app',
       process.env.FRONTEND_URL
     ].filter(Boolean);
     
     if (allowedOrigins.includes(origin)) {
-      console.log('✅ Origin in allowed list - allowing request');
       return callback(null, true);
     }
     

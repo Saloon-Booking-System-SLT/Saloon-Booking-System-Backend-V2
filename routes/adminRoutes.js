@@ -9,6 +9,13 @@ const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/jwtUtils');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 const notificationService = require('../services/notificationService');
+const { 
+  optimizeAggregationPipeline, 
+  getPagination, 
+  getPaginationMeta,
+  countSafe,
+  findPaginated
+} = require('../utils/queryOptimizer');
 
 // Admin Login with JWT tokens
 router.post('/login', async (req, res) => {
@@ -50,108 +57,143 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET: Dashboard Statistics (Protected - Admin only)
+// GET: Dashboard Statistics (Protected - Admin only) - Memory Optimized
 router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const totalSalons = await Salon.countDocuments();
-    const totalCustomers = await User.countDocuments();
-    const totalAppointments = await Appointment.countDocuments();
+    // Use countDocuments for counts only (no full documents loaded)
+    const [totalSalons, totalCustomers, totalAppointments, totalEmployees, pendingApprovals] = await Promise.all([
+      countSafe(Salon, {}),
+      countSafe(User, { role: 'customer' }),
+      countSafe(Appointment, {}),
+      countSafe(Professional, {}),
+      countSafe(Salon, { approvalStatus: 'pending' })
+    ]);
     
-    // Get professionals count across all salons
-    const totalEmployees = await Professional.countDocuments();
-    
-    // Get pending approvals (salons with pending status)
-    const pendingApprovals = await Salon.countDocuments({ approvalStatus: 'pending' });
-    
-    // Get latest bookings
+    // Get latest bookings with only needed fields
     const latestBookings = await Appointment.find()
+      .select('salonId date time status services')
       .sort({ createdAt: -1 })
       .limit(10)
       .populate('salonId', 'name')
-      .populate('professionalId', 'name');
+      .lean();
     
-    // Get latest cancellations
+    // Get latest cancellations with only needed fields
     const latestCancellations = await Appointment.find({ status: 'cancelled' })
+      .select('salonId date time updatedAt')
       .sort({ updatedAt: -1 })
       .limit(10)
-      .populate('salonId', 'name');
+      .populate('salonId', 'name')
+      .lean();
     
-    // Calculate revenue - FIXED VERSION
+    // Calculate revenue using optimized aggregation
     let totalRevenue = 0;
     try {
       const revenueData = await Appointment.aggregate([
         { $match: { status: 'completed' } },
+        { $limit: 10000 }, // Limit before group
         { $unwind: '$services' },
         { $group: { _id: null, total: { $sum: '$services.price' } } }
       ]);
       totalRevenue = revenueData[0]?.total || 0;
     } catch (err) {
-      console.error('Error calculating revenue:', err);
+      console.error('Revenue calculation error:', err.message);
     }
     
-    // Pending payments - FIXED VERSION
+    // Pending payments using optimized aggregation
     let pendingPayments = 0;
     try {
       const pendingData = await Appointment.aggregate([
         { $match: { status: 'pending' } },
+        { $limit: 10000 },
         { $unwind: '$services' },
         { $group: { _id: null, total: { $sum: '$services.price' } } }
       ]);
       pendingPayments = pendingData[0]?.total || 0;
     } catch (err) {
-      console.error('Error calculating pending payments:', err);
+      console.error('Pending payments error:', err.message);
     }
     
-    // Monthly data for charts - FIXED VERSION
+    // Monthly data for charts
     let monthlyData = [];
     try {
       monthlyData = await Appointment.aggregate([
-        {
-          $addFields: {
-            // Convert string date to Date object
-            dateObj: { 
-              $cond: {
-                if: { $eq: [{ $type: "$date" }, "string"] },
-                then: { $toDate: "$date" },
-                else: "$date"
-              }
-            }
-          }
-        },
+        { $match: { status: 'completed' } },
+        { $limit: 1000 }, // Cap results before processing
         {
           $group: {
-            _id: { $month: '$dateObj' },
-            bookings: { $sum: 1 },
-            revenue: { $sum: { $arrayElemAt: ['$services.price', 0] } }
+            _id: { $dateToString: { format: '%Y-%m', date: { $toDate: '$date' } } },
+            count: { $sum: 1 }
           }
         },
-        { $sort: { _id: 1 } },
-        {
-          $project: {
-            month: '$_id',
-            bookings: 1,
-            revenue: 1,
-            _id: 0
-          }
-        }
+        { $sort: { _id: 1 } }
       ]);
-      
-      // Transform to month names
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      monthlyData = monthlyData.map(item => ({
-        name: monthNames[item.month - 1] || `Month ${item.month}`,
-        bookings: item.bookings,
-        revenue: item.revenue || 0
-      }));
     } catch (err) {
-      console.error('Error calculating monthly data:', err);
-      monthlyData = [];
+      console.error('Monthly data error:', err.message);
     }
     
     res.json({
       totalSalons,
       totalCustomers,
+      totalAppointments,
       totalEmployees,
+      pendingApprovals,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      pendingPayments: Math.round(pendingPayments * 100) / 100,
+      latestBookings: latestBookings.slice(0, 5), // Return only 5 latest
+      latestCancellations: latestCancellations.slice(0, 5),
+      monthlyData
+    });
+  } catch (err) {
+    console.error('Dashboard stats error:', err);
+    res.status(500).json({ message: 'Failed to fetch statistics' });
+  }
+});
+
+// GET: Paginated salons list (Protected - Admin only)
+router.get('/salons', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await findPaginated(Salon, {}, req.query, 'name email location approvalStatus');
+    res.json(result);
+  } catch (err) {
+    console.error('Admin salons list error:', err);
+    res.status(500).json({ message: 'Failed to fetch salons' });
+  }
+});
+
+// GET: Paginated customers list (Protected - Admin only)
+router.get('/customers', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await findPaginated(User, { role: 'customer' }, req.query, 'name email phone createdAt');
+    res.json(result);
+  } catch (err) {
+    console.error('Admin customers list error:', err);
+    res.status(500).json({ message: 'Failed to fetch customers' });
+  }
+});
+
+// GET: Paginated appointments (Protected - Admin only)
+router.get('/appointments', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { page, limit, skip } = getPagination(req.query);
+    const [data, total] = await Promise.all([
+      Appointment.find()
+        .select('salonId date time status services')
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .maxTimeMS(10000),
+      countSafe(Appointment, {})
+    ]);
+    
+    res.json({
+      data,
+      pagination: getPaginationMeta(total, page, limit)
+    });
+  } catch (err) {
+    console.error('Admin appointments error:', err);
+    res.status(500).json({ message: 'Failed to fetch appointments' });
+  }
+});
       pendingApprovals,
       latestBookings,
       latestCancellations,

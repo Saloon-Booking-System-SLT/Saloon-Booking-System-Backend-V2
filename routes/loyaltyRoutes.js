@@ -3,14 +3,19 @@ const router = express.Router();
 const { Loyalty, LoyaltyConfig } = require('../models/Loyalty');
 const User = require('../models/User');
 const Appointment = require('../models/Appointment');
+const { getPagination, getPaginationMeta } = require('../utils/queryOptimizer');
 
 // GET: Global loyalty configuration
 router.get('/config', async (req, res) => {
   try {
-    const config = await LoyaltyConfig.find().populate('salonId', 'name');
+    const config = await LoyaltyConfig.find()
+      .populate('salonId', 'name')
+      .lean()
+      .limit(100)
+      .maxTimeMS(5000);
     res.json(config);
   } catch (err) {
-    console.error('Error fetching loyalty config:', err);
+    console.error('Loyalty config error:', err.message);
     res.status(500).json({ message: 'Failed to fetch loyalty configuration' });
   }
 });
@@ -20,7 +25,6 @@ router.post('/config', async (req, res) => {
   try {
     const { pointsThreshold, conversionRate } = req.body;
     
-    // Update all salon configs or create global config
     const config = await LoyaltyConfig.findOneAndUpdate(
       { salonId: null },
       { pointsThreshold, conversionRate, isActive: true },
@@ -29,7 +33,7 @@ router.post('/config', async (req, res) => {
     
     res.json(config);
   } catch (err) {
-    console.error('Error updating loyalty config:', err);
+    console.error('Loyalty config update error:', err.message);
     res.status(500).json({ message: 'Failed to update loyalty configuration' });
   }
 });
@@ -37,49 +41,63 @@ router.post('/config', async (req, res) => {
 // GET: Loyalty statistics
 router.get('/stats', async (req, res) => {
   try {
-    const totalPoints = await Loyalty.aggregate([
-      { $group: { _id: null, total: { $sum: '$points' } } }
+    const [totalPointsData, totalCustomers] = await Promise.all([
+      Loyalty.aggregate([
+        { $limit: 10000 },
+        { $group: { _id: null, total: { $sum: '$points' } } }
+      ]),
+      Loyalty.countDocuments()
     ]);
     
-    const totalCustomers = await Loyalty.countDocuments();
-    
     res.json({
-      totalPointsIssued: totalPoints[0]?.total || 0,
-      totalCustomers
+      totalPointsIssued: totalPointsData[0]?.total || 0,
+      totalCustomers,
+      timestamp: new Date().toISOString()
     });
   } catch (err) {
-    console.error('Error fetching loyalty stats:', err);
+    console.error('Loyalty stats error:', err.message);
     res.status(500).json({ message: 'Failed to fetch loyalty statistics' });
   }
 });
 
-// GET: Most loyal customers
+// GET: Most loyal customers (paginated)
 router.get('/customers/top', async (req, res) => {
   try {
+    const { limit = 10 } = req.query;
+    const maxLimit = Math.min(parseInt(limit) || 10, 50);
+    
     const topCustomers = await Loyalty.find()
+      .select('userId points createdAt')
       .sort({ points: -1 })
-      .limit(10)
-      .populate('userId', 'name email');
+      .limit(maxLimit)
+      .lean()
+      .maxTimeMS(10000);
     
-    // Get last visit for each customer
-    const customersWithVisits = await Promise.all(
-      topCustomers.map(async (loyalty) => {
-        const lastAppointment = await Appointment.findOne({
-          'user.email': loyalty.userId?.email
-        }).sort({ date: -1 });
-        
-        return {
-          customer: loyalty.userId?.name || 'Unknown',
-          email: loyalty.userId?.email || '',
-          points: loyalty.points,
-          lastVisit: lastAppointment?.date || null
-        };
-      })
-    );
+    // Batch fetch user data for these loyalty records
+    const userIds = topCustomers.map(l => l.userId);
+    const users = await User.find({ _id: { $in: userIds } })
+      .select('_id name email')
+      .lean()
+      .maxTimeMS(5000);
     
-    res.json(customersWithVisits);
+    const userMap = new Map(users.map(u => [u._id.toString(), u]));
+    
+    // Map loyalty to user data
+    const customersWithData = topCustomers.map(loyalty => {
+      const user = userMap.get(loyalty.userId.toString());
+      return {
+        customer: user?.name || 'Unknown',
+        email: user?.email || '',
+        points: loyalty.points
+      };
+    });
+    
+    res.json({
+      data: customersWithData,
+      count: customersWithData.length
+    });
   } catch (err) {
-    console.error('Error fetching top customers:', err);
+    console.error('Top customers error:', err.message);
     res.status(500).json({ message: 'Failed to fetch top customers' });
   }
 });

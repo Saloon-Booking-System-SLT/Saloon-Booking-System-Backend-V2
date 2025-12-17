@@ -82,30 +82,49 @@ router.post('/:id/send-emails', async (req, res) => {
     }
     
     let customerList = [];
+    const MAX_EMAILS = 1000; // Safety limit
     
-    if (targetCustomers === 'all') {
-      // Get all customers
-      customerList = await User.find({ role: 'customer' }).select('name email');
-    } else if (targetCustomers === 'recent') {
-      // Get customers who booked in the last 6 months
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      
-      const Appointment = require('../models/Appointment');
-      const recentAppointments = await Appointment.find({
-        createdAt: { $gte: sixMonthsAgo }
-      }).distinct('user.email');
-      
-      customerList = await User.find({ 
-        email: { $in: recentAppointments },
-        role: 'customer'
-      }).select('name email');
-    } else if (Array.isArray(targetCustomers)) {
-      // Specific email list
-      customerList = await User.find({ 
-        email: { $in: targetCustomers },
-        role: 'customer'
-      }).select('name email');
+    try {
+      if (targetCustomers === 'all') {
+        // Get customers in batches to save memory
+        customerList = await User.find({ role: 'customer' })
+          .select('name email')
+          .lean()
+          .limit(MAX_EMAILS)
+          .maxTimeMS(10000);
+          
+      } else if (targetCustomers === 'recent') {
+        // Get customers who booked in the last 6 months using aggregation
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        
+        const Appointment = require('../models/Appointment');
+        const recentEmails = await Appointment.aggregate([
+          { $match: { createdAt: { $gte: sixMonthsAgo } } },
+          { $limit: MAX_EMAILS },
+          { $group: { _id: '$user.email' } }
+        ]);
+        
+        const emailList = recentEmails.map(a => a._id);
+        customerList = await User.find({ 
+          email: { $in: emailList },
+          role: 'customer'
+        }).select('name email')
+          .lean()
+          .maxTimeMS(10000);
+          
+      } else if (Array.isArray(targetCustomers)) {
+        // Specific email list - cap at MAX_EMAILS
+        customerList = await User.find({ 
+          email: { $in: targetCustomers.slice(0, MAX_EMAILS) },
+          role: 'customer'
+        }).select('name email')
+          .lean()
+          .maxTimeMS(10000);
+      }
+    } catch (err) {
+      console.error('Customer list fetch error:', err);
+      return res.status(500).json({ message: 'Failed to fetch customer list' });
     }
     
     if (customerList.length === 0) {
