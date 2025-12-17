@@ -367,7 +367,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// OPTIMIZED: Get appointments with pagination
+// OPTIMIZED: Get appointments with backward compatibility
 router.get("/", async (req, res) => {
   const { email, phone, page, limit } = req.query;
   try {
@@ -377,6 +377,17 @@ router.get("/", async (req, res) => {
       ? { "user.phone": phone }
       : {};
 
+    // Backward compatibility: if no pagination params, return array directly
+    if (!page && !limit) {
+      const result = await Appointment.find(query)
+        .sort({ createdAt: -1 })
+        .limit(100) // Safety limit
+        .populate("salonId", "name email phone")
+        .lean();
+      return res.json(result);
+    }
+
+    // New pagination support
     const { skip, limit: validLimit } = getPaginationParams({ page, limit });
     
     const [result, total] = await Promise.all([
@@ -384,7 +395,7 @@ router.get("/", async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(validLimit)
-        .populate("salonId", "name email phone") // Only select needed fields
+        .populate("salonId", "name email phone")
         .lean(),
       Appointment.countDocuments(query)
     ]);

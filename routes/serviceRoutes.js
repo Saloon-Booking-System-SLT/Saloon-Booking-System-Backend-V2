@@ -64,9 +64,21 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// Get all services (for family booking) with pagination
+// Get all services (for family booking) with backward compatibility
 router.get('/', async (req, res) => {
   try {
+    // Backward compatibility: if no pagination params, return old format
+    if (!req.query.page && !req.query.limit) {
+      const services = await Service.find()
+        .limit(200) // Safety limit
+        .lean();
+      return res.json({
+        success: true,
+        data: services
+      });
+    }
+    
+    // New pagination support
     const { page, limit } = getPaginationParams(req.query);
     const skip = (page - 1) * limit;
     

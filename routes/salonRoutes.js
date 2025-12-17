@@ -654,11 +654,21 @@ router.get("/", async (req, res) => {
       ...(location && { location: { $regex: location, $options: "i" } })
     };
     
+    // Backward compatibility: if no pagination params, return array directly
+    if (!page && !limit) {
+      const salons = await Salon.find(query)
+        .select('-password -resetPasswordToken -resetPasswordExpires')
+        .limit(100) // Safety limit
+        .lean();
+      return res.json(salons);
+    }
+    
+    // New pagination support
     const { skip, limit: validLimit } = getPaginationParams({ page, limit });
     
     const [salons, total] = await Promise.all([
       Salon.find(query)
-        .select('-password -resetPasswordToken -resetPasswordExpires') // Exclude sensitive fields
+        .select('-password -resetPasswordToken -resetPasswordExpires')
         .skip(skip)
         .limit(validLimit)
         .lean(),
