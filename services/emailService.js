@@ -66,11 +66,14 @@ class EmailService {
       
       console.log('✅ Professional Email Service initialized successfully');
       
-      // Test connection
-      this.testConnection();
+      // Test connection asynchronously - don't block startup
+      this.testConnection().catch(err => {
+        console.warn('⚠️ Email connection test failed, but service will continue:', err.message);
+      });
       
     } catch (error) {
       console.error('❌ Email Service initialization failed:', error.message);
+      console.warn('⚠️ Server will continue without email functionality');
       this.transporter = null;
     }
   }

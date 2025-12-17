@@ -10,4 +10,22 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 5000
+        value: 10000
+      - key: MONGO_URI
+        sync: false  # Set in Render dashboard
+      - key: JWT_SECRET
+        sync: false  # Set in Render dashboard
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false  # Set in Render dashboard
+      - key: CLOUDINARY_API_KEY
+        sync: false  # Set in Render dashboard
+      - key: CLOUDINARY_API_SECRET
+        sync: false  # Set in Render dashboard
+      - key: EMAIL_USER
+        sync: false  # Set in Render dashboard
+      - key: EMAIL_PASSWORD
+        sync: false  # Set in Render dashboard
+      - key: FRONTEND_URL
+        value: https://saloon-booking-system-frontend-web-eight.vercel.app

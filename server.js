@@ -158,10 +158,19 @@ mongoose.connect(process.env.MONGO_URI)
   console.log("✅ MongoDB connected");
   
   // Initialize email notification cron jobs after database connection
-  const cronJobManager = require('./utils/cronJobs');
-  cronJobManager.initialize();
+  try {
+    const cronJobManager = require('./utils/cronJobs');
+    cronJobManager.initialize();
+    console.log('✅ Cron jobs initialized');
+  } catch (error) {
+    console.error('⚠️ Cron jobs initialization failed:', error.message);
+    console.log('⏭️ Server will continue without cron jobs');
+  }
 })
-.catch((err) => console.error("❌ MongoDB connection error:", err));
+.catch((err) => {
+  console.error("❌ MongoDB connection error:", err);
+  console.error('⚠️ Server may not function properly without database');
+});
 
 // Health check route for debugging CORS
 app.get('/api/health', (req, res) => {
@@ -237,15 +246,21 @@ app.get('/', (req, res) => {
   res.send('✅ Salon API is running!');
 });
 
-// Global error handlers
+// Global error handlers - Production-safe
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
-  process.exit(1);
+  // Don't exit in production - let Render handle restarts
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  // Don't exit in production - log and continue
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
 
 // Graceful shutdown
@@ -270,6 +285,8 @@ server.on('error', (error) => {
   console.error('❌ Server error:', error);
   if (error.code === 'EADDRINUSE') {
     console.error(`❌ Port ${PORT} is already in use`);
-    process.exit(1);
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
   }
 });
