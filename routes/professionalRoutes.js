@@ -81,11 +81,69 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// ----------------- GET PROFESSIONALS -----------------
-router.get("/:salonId", async (req, res) => {
+// ----------------- GET SINGLE PROFESSIONAL BY ID -----------------
+router.get("/single/:id", async (req, res) => {
+  try {
+    const professional = await Professional.findById(req.params.id)
+      .lean(); // Memory optimization
+    
+    if (!professional) {
+      return res.status(404).json({ error: "Professional not found" });
+    }
+    
+    res.json(professional);
+  } catch (err) {
+    console.error("FETCH SINGLE ERROR:", err);
+    res.status(500).json({ error: "Fetch failed", details: err.message });
+  }
+});
+
+// ----------------- GET PROFESSIONALS BY SALON -----------------
+router.get("/salon/:salonId", async (req, res) => {
   try {
     const professionals = await Professional.find({ salonId: req.params.salonId })
       .lean(); // Memory optimization
+    res.json(professionals);
+  } catch (err) {
+    console.error("FETCH BY SALON ERROR:", err);
+    res.status(500).json({ error: "Fetch failed", details: err.message });
+  }
+});
+
+// ----------------- GET ALL PROFESSIONALS (with optional salon filter) -----------------
+// This endpoint maintains backward compatibility
+// Usage: GET /api/professionals (all) or GET /api/professionals?salonId=xxx
+router.get("/", async (req, res) => {
+  try {
+    const { salonId } = req.query;
+    const filter = salonId ? { salonId } : {};
+    
+    const professionals = await Professional.find(filter)
+      .lean(); // Memory optimization
+    res.json(professionals);
+  } catch (err) {
+    console.error("FETCH ALL ERROR:", err);
+    res.status(500).json({ error: "Fetch failed", details: err.message });
+  }
+});
+
+// ----------------- GET BY DYNAMIC ID (salon or professional) -----------------
+// DEPRECATED: Kept for backward compatibility only
+// This tries to determine if the ID is for a salon (has matching professionals)
+// or a professional (direct match). Use specific endpoints above instead.
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // First, try to find it as a professional ID
+    const professional = await Professional.findById(id).lean();
+    
+    if (professional) {
+      return res.json(professional);
+    }
+    
+    // Otherwise, treat it as a salon ID
+    const professionals = await Professional.find({ salonId: id }).lean();
     res.json(professionals);
   } catch (err) {
     console.error("FETCH ERROR:", err);
