@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Service = require("../models/Service");
 const upload = require("../middleware/uploadServiceImage");
+const { getPaginationParams, buildPaginatedResponse } = require("../utils/queryHelpers");
 
 // ➕ Add new service
 router.post("/", upload.single("image"), async (req, res) => {
@@ -29,7 +30,8 @@ router.post("/", upload.single("image"), async (req, res) => {
 // 📄 Get all services for a salon
 router.get("/:salonId", async (req, res) => {
   try {
-    const services = await Service.find({ salonId: req.params.salonId });
+    const services = await Service.find({ salonId: req.params.salonId })
+      .lean(); // Memory optimization
     res.json(services);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch services" });
@@ -62,14 +64,22 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// Get all services (for family booking)
+// Get all services (for family booking) with pagination
 router.get('/', async (req, res) => {
   try {
-    const services = await Service.find();
-    res.json({
-      success: true,
-      data: services
-    });
+    const { page, limit } = getPaginationParams(req.query);
+    const skip = (page - 1) * limit;
+    
+    const [services, total] = await Promise.all([
+      Service.find()
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Service.countDocuments()
+    ]);
+    
+    const response = buildPaginatedResponse(services, total, page, limit);
+    res.json(response);
   } catch (error) {
     console.error('Error fetching services:', error);
     res.status(500).json({

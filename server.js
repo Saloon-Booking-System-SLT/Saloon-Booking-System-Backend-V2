@@ -148,18 +148,29 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
-app.use(express.json());
-app.use(express.json({ limit: "10mb" })); // handle JSON
-app.use(express.urlencoded({ extended: true, limit: "10mb" })); // handle form data
+// Limit request body size to 1MB for memory safety
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
+// MongoDB Connection with optimized settings
+mongoose.connect(process.env.MONGO_URI, {
+  // Optimize for low-memory environments
+  maxPoolSize: 10, // Limit connection pool size
+  minPoolSize: 2,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+})
 .then(() => {
   console.log("✅ MongoDB connected");
   
   // Initialize email notification cron jobs after database connection
-  const cronJobManager = require('./utils/cronJobs');
-  cronJobManager.initialize();
+  // Only in production or if explicitly enabled
+  if (process.env.ENABLE_CRON_JOBS === 'true') {
+    const cronJobManager = require('./utils/cronJobs');
+    cronJobManager.initialize();
+  } else {
+    console.log('⏸️ Cron jobs disabled (set ENABLE_CRON_JOBS=true to enable)');
+  }
 })
 .catch((err) => console.error("❌ MongoDB connection error:", err));
 
@@ -187,11 +198,19 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
+  const memoryUsage = process.memoryUsage();
+  const memoryInMB = {
+    rss: Math.round(memoryUsage.rss / 1024 / 1024),
+    heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
+    heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+    external: Math.round(memoryUsage.external / 1024 / 1024)
+  };
+  
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
+    uptime: Math.round(process.uptime()),
+    memoryMB: memoryInMB,
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
 });
@@ -240,19 +259,53 @@ app.get('/', (req, res) => {
 // Global error handlers
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
-  process.exit(1);
+  // Don't exit immediately in production, log and continue
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  // Don't exit immediately in production, log and continue
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM received, shutting down gracefully');
-  process.exit(0);
-});
+const shutdown = async (signal) => {
+  console.log(`\n👋 ${signal} received, shutting down gracefully`);
+  
+  try {
+    // Stop accepting new connections
+    server.close(() => {
+      console.log('✅ HTTP server closed');
+    });
+    
+    // Close database connection
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.connection.close();
+      console.log('✅ Database connection closed');
+    }
+    
+    // Stop cron jobs if initialized
+    const cronJobManager = require('./utils/cronJobs');
+    if (cronJobManager && cronJobManager.stopAll) {
+      cronJobManager.stopAll();
+      console.log('✅ Cron jobs stopped');
+    }
+    
+    console.log('✅ Graceful shutdown complete');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error during shutdown:', error);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Start server
 const PORT = process.env.PORT || 5000;

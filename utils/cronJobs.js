@@ -72,11 +72,14 @@ class CronJobManager {
       // Import Appointment model
       const Appointment = require('../models/Appointment');
 
-      // Find completed appointments from yesterday that haven't been reviewed
+      // Find completed appointments from yesterday with pagination
       const completedAppointments = await Appointment.find({
         date: yesterdayDateStr,
         status: 'completed'
-      });
+      })
+      .select('_id user.email user.phone user.name salonName serviceName date') // Only select needed fields
+      .limit(100) // Limit to 100 per run to avoid memory issues
+      .lean(); // Use lean for memory efficiency
 
       console.log(`📋 Found ${completedAppointments.length} completed appointments from yesterday`);
 
@@ -89,7 +92,7 @@ class CronJobManager {
           const existingFeedback = await Feedback.findOne({
             appointmentId: appointment._id,
             userEmail: appointment.user.email
-          });
+          }).lean();
 
           // Only send if no feedback exists
           if (!existingFeedback) {
@@ -158,6 +161,20 @@ class CronJobManager {
       };
     });
     return status;
+  }
+
+  // Stop all cron jobs (for graceful shutdown)
+  stopAll() {
+    console.log('🛑 Stopping all cron jobs...');
+    this.jobs.forEach((job, name) => {
+      try {
+        job.stop();
+        console.log(`✅ Stopped job: ${name}`);
+      } catch (error) {
+        console.error(`❌ Error stopping job ${name}:`, error);
+      }
+    });
+    this.jobs.clear();
   }
 
   // Manual trigger for testing

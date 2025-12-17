@@ -1,6 +1,68 @@
 const nodemailer = require('nodemailer');
 
-// Load environment variables if not already loaded
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# =====================================================## 5. Ensure MongoDB connection string includes srv protocol# 4. Monitor memory usage via: GET /health endpoint#    - GET /api/admin/notifications/trigger?type=feedback (daily at 10 AM)#    - GET /api/admin/notifications/trigger?type=reminders (daily at 9 AM)#    - POST /api/appointments/generate-slots (daily at 2 AM)# 3. Use external cron service to call:# 2. Keep ENABLE_CRON_JOBS=false to prevent background processes# 1. Set all environment variables in Render dashboard# # =====================================================# DEPLOYMENT NOTES FOR RENDER# =====================================================# No configuration needed - system is optimized for Render Free tier (~512MB RAM)# These settings are automatically applied in the code# ========== MEMORY OPTIMIZATION ==========ENABLE_CRON_JOBS=false# Use external cron services (like cron-job.org) to trigger endpoints instead# Set to 'false' on Render Free tier to save resources# Enable background jobs (email reminders, etc.)# ========== CRON JOBS ==========JWT_SECRET=your-super-secret-jwt-key-change-this-in-production# ========== JWT AUTHENTICATION ==========CLOUDINARY_API_SECRET=your-cloudinary-api-secretCLOUDINARY_API_KEY=your-cloudinary-api-keyCLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name# ========== CLOUDINARY (Image Upload) ==========TWILIO_PHONE_NUMBER=your-twilio-phone-numberTWILIO_AUTH_TOKEN=your-twilio-auth-tokenTWILIO_ACCOUNT_SID=your-twilio-account-sid# Twilio Configuration for SMS notifications# ========== SMS/TWILIO (Optional) ==========SENDGRID_API_KEY=your-sendgrid-api-key# SendGrid (Optional - for production email sending)EMAIL_PASSWORD=your-app-specific-passwordEMAIL_USER=your-email@gmail.com# Gmail SMTP Configuration# ========== EMAIL SERVICE ==========FRONTEND_URL=https://your-frontend-url.vercel.app# Frontend URL for CORS and redirects# ========== FRONTEND ==========MONGO_URI=your_mongodb_connection_string_here# MongoDB Connection String# ========== DATABASE ==========PORT=5000NODE_ENV=production# ========== SERVER CONFIGURATION ==========# =====================================================# Memory-Optimized Salon Booking System Backend// Load environment variables if not already loaded
 if (!process.env.EMAIL_USER) {
   require('dotenv').config();
 }
@@ -47,16 +109,16 @@ class EmailService {
           rejectUnauthorized: false,
           ciphers: 'SSLv3'
         },
-        // Professional timeout settings - increased for reliability
-        connectionTimeout: 120000, // 2 minutes
-        greetingTimeout: 60000,    // 1 minute
-        socketTimeout: 120000,     // 2 minutes
-        // Connection pooling for reliability
+        // Professional timeout settings - optimized for low-memory
+        connectionTimeout: 60000,  // 1 minute
+        greetingTimeout: 30000,    // 30 seconds
+        socketTimeout: 60000,      // 1 minute
+        // Connection pooling - reduced for memory efficiency
         pool: true,
-        maxConnections: 3, // Reduced to avoid overwhelming
-        maxMessages: 50,   // Reduced batch size
-        rateDelta: 2000,   // Increased rate limiting
-        rateLimit: 3,      // Reduced rate
+        maxConnections: 2,  // Reduced to 2 for memory efficiency
+        maxMessages: 20,    // Reduced batch size
+        rateDelta: 3000,    // Increased rate limiting
+        rateLimit: 2,       // Reduced rate for memory safety
         // Additional options
         logger: false,
         debug: process.env.NODE_ENV === 'development'
@@ -110,7 +172,7 @@ class EmailService {
   }
 
   // Professional email sending with retry logic and fallback
-  async sendEmail(mailOptions, retryCount = 2) { // Reduced retries to avoid spam
+  async sendEmail(mailOptions, retryCount = 1) { // Reduced to 1 retry for memory safety
     if (!this.transporter) {
       console.log('⚠️ Email service not available');
       return { success: false, error: 'Email service not configured' };
@@ -125,10 +187,10 @@ class EmailService {
           subject: mailOptions.subject
         });
 
-        // Add timeout to prevent hanging
+        // Add timeout to prevent hanging - reduced to 20 seconds
         const emailPromise = this.transporter.sendMail(mailOptions);
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Email sending timeout after 30 seconds')), 30000)
+          setTimeout(() => reject(new Error('Email sending timeout after 20 seconds')), 20000)
         );
 
         const result = await Promise.race([emailPromise, timeoutPromise]);

@@ -3,11 +3,14 @@ const router = express.Router();
 const { Loyalty, LoyaltyConfig } = require('../models/Loyalty');
 const User = require('../models/User');
 const Appointment = require('../models/Appointment');
+const { getPaginationParams, buildPaginatedResponse } = require('../utils/queryHelpers');
 
 // GET: Global loyalty configuration
 router.get('/config', async (req, res) => {
   try {
-    const config = await LoyaltyConfig.find().populate('salonId', 'name');
+    const config = await LoyaltyConfig.find()
+      .populate('salonId', 'name')
+      .lean();
     res.json(config);
   } catch (err) {
     console.error('Error fetching loyalty config:', err);
@@ -38,7 +41,8 @@ router.post('/config', async (req, res) => {
 router.get('/stats', async (req, res) => {
   try {
     const totalPoints = await Loyalty.aggregate([
-      { $group: { _id: null, total: { $sum: '$points' } } }
+      { $group: { _id: null, total: { $sum: '$points' } } },
+      { $limit: 1 } // Only need one result
     ]);
     
     const totalCustomers = await Loyalty.countDocuments();
@@ -56,17 +60,24 @@ router.get('/stats', async (req, res) => {
 // GET: Most loyal customers
 router.get('/customers/top', async (req, res) => {
   try {
+    const { limit = 10 } = req.query;
+    const topLimit = Math.min(parseInt(limit) || 10, 50); // Max 50
+    
     const topCustomers = await Loyalty.find()
       .sort({ points: -1 })
-      .limit(10)
-      .populate('userId', 'name email');
+      .limit(topLimit)
+      .populate('userId', 'name email')
+      .lean();
     
     // Get last visit for each customer
     const customersWithVisits = await Promise.all(
       topCustomers.map(async (loyalty) => {
         const lastAppointment = await Appointment.findOne({
           'user.email': loyalty.userId?.email
-        }).sort({ date: -1 });
+        })
+        .select('date')
+        .sort({ date: -1 })
+        .lean();
         
         return {
           customer: loyalty.userId?.name || 'Unknown',
@@ -90,7 +101,9 @@ router.post('/points', async (req, res) => {
     const { email, points, action } = req.body; // action: 'issue' or 'revoke'
     
     // Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email })
+      .select('_id')
+      .lean();
     if (!user) {
       return res.status(404).json({ message: 'Customer not found' });
     }

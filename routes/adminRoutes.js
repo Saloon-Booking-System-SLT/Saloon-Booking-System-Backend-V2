@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/jwtUtils');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 const notificationService = require('../services/notificationService');
+const { getPaginationParams, buildPaginatedResponse } = require('../utils/queryHelpers');
 
 // Admin Login with JWT tokens
 router.post('/login', async (req, res) => {
@@ -63,46 +64,52 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
     // Get pending approvals (salons with pending status)
     const pendingApprovals = await Salon.countDocuments({ approvalStatus: 'pending' });
     
-    // Get latest bookings
+    // Get latest bookings with lean for memory efficiency
     const latestBookings = await Appointment.find()
+      .select('_id user.name services date startTime status createdAt') // Only needed fields
       .sort({ createdAt: -1 })
       .limit(10)
       .populate('salonId', 'name')
-      .populate('professionalId', 'name');
+      .populate('professionalId', 'name')
+      .lean();
     
-    // Get latest cancellations
+    // Get latest cancellations with lean
     const latestCancellations = await Appointment.find({ status: 'cancelled' })
+      .select('_id user.name services date startTime status updatedAt') // Only needed fields
       .sort({ updatedAt: -1 })
       .limit(10)
-      .populate('salonId', 'name');
+      .populate('salonId', 'name')
+      .lean();
     
-    // Calculate revenue - FIXED VERSION
+    // Calculate revenue - OPTIMIZED with early $match
     let totalRevenue = 0;
     try {
       const revenueData = await Appointment.aggregate([
-        { $match: { status: 'completed' } },
+        { $match: { status: 'completed' } }, // Early filter
         { $unwind: '$services' },
-        { $group: { _id: null, total: { $sum: '$services.price' } } }
+        { $group: { _id: null, total: { $sum: '$services.price' } } },
+        { $limit: 1 } // Only need one result
       ]);
       totalRevenue = revenueData[0]?.total || 0;
     } catch (err) {
       console.error('Error calculating revenue:', err);
     }
     
-    // Pending payments - FIXED VERSION
+    // Pending payments - OPTIMIZED with early $match
     let pendingPayments = 0;
     try {
       const pendingData = await Appointment.aggregate([
-        { $match: { status: 'pending' } },
+        { $match: { status: 'pending' } }, // Early filter
         { $unwind: '$services' },
-        { $group: { _id: null, total: { $sum: '$services.price' } } }
+        { $group: { _id: null, total: { $sum: '$services.price' } } },
+        { $limit: 1 } // Only need one result
       ]);
       pendingPayments = pendingData[0]?.total || 0;
     } catch (err) {
       console.error('Error calculating pending payments:', err);
     }
     
-    // Monthly data for charts - FIXED VERSION
+    // Monthly data for charts - OPTIMIZED
     let monthlyData = [];
     try {
       monthlyData = await Appointment.aggregate([
@@ -126,6 +133,7 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
           }
         },
         { $sort: { _id: 1 } },
+        { $limit: 12 }, // Max 12 months
         {
           $project: {
             month: '$_id',
@@ -176,15 +184,24 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
 // GET: All appointments across all salons (Protected - Admin only)
 router.get('/appointments', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { date } = req.query;
+    const { date, page, limit } = req.query;
     const query = date ? { date } : {};
     
-    const appointments = await Appointment.find(query)
-      .sort({ date: -1, startTime: -1 })
-      .populate('salonId', 'name')
-      .populate('professionalId', 'name');
+    const { skip, limit: validLimit } = getPaginationParams({ page, limit });
     
-    res.json(appointments);
+    const [appointments, total] = await Promise.all([
+      Appointment.find(query)
+        .sort({ date: -1, startTime: -1 })
+        .skip(skip)
+        .limit(validLimit)
+        .populate('salonId', 'name')
+        .populate('professionalId', 'name')
+        .lean(),
+      Appointment.countDocuments(query)
+    ]);
+    
+    const response = buildPaginatedResponse(appointments, total, parseInt(page) || 1, validLimit);
+    res.json(response);
   } catch (err) {
     console.error('Error fetching appointments:', err);
     res.status(500).json({ message: 'Failed to fetch appointments' });
@@ -215,34 +232,54 @@ router.patch('/appointments/:id/status', authenticateToken, requireAdmin, async 
 // GET: All customers with statistics (Protected - Admin only)
 router.get('/customers', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const users = await User.find().lean();
+    const { page, limit } = getPaginationParams(req.query);
+    const skip = (page - 1) * limit;
     
-    // Get booking stats for each user
+    const [users, total] = await Promise.all([
+      User.find()
+        .select('_id name email phone role createdAt') // Only select needed fields
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments()
+    ]);
+    
+    // Get booking stats for paginated users only
     const usersWithStats = await Promise.all(
       users.map(async (user) => {
-        const bookings = await Appointment.countDocuments({ 'user.email': user.email });
-        const appointments = await Appointment.find({ 'user.email': user.email });
+        const bookingCount = await Appointment.countDocuments({ 'user.email': user.email });
         
-        const totalSpent = appointments.reduce((sum, apt) => {
-          return sum + (apt.services?.[0]?.price || 0);
-        }, 0);
+        // Only fetch detailed stats if user has bookings
+        let totalSpent = 0;
+        let lastBooking = null;
         
-        const lastBooking = appointments.length > 0 
-          ? appointments.sort((a, b) => new Date(b.date) - new Date(a.date))[0].date
-          : null;
+        if (bookingCount > 0) {
+          const appointments = await Appointment.find({ 'user.email': user.email })
+            .select('date services')
+            .sort({ date: -1 })
+            .limit(50) // Limit to recent 50 appointments
+            .lean();
+          
+          totalSpent = appointments.reduce((sum, apt) => {
+            return sum + (apt.services?.[0]?.price || 0);
+          }, 0);
+          
+          lastBooking = appointments[0]?.date || null;
+        }
         
         return {
           ...user,
-          bookings,
+          bookings: bookingCount,
           totalSpent,
-          avgSpend: bookings > 0 ? totalSpent / bookings : 0,
+          avgSpend: bookingCount > 0 ? totalSpent / bookingCount : 0,
           lastBooking,
           isRegistered: true
         };
       })
     );
     
-    res.json(usersWithStats);
+    const response = buildPaginatedResponse(usersWithStats, total, page, limit);
+    res.json(response);
   } catch (err) {
     console.error('Error fetching customers:', err);
     res.status(500).json({ message: 'Failed to fetch customers' });
@@ -252,11 +289,19 @@ router.get('/customers', authenticateToken, requireAdmin, async (req, res) => {
 // GET: All feedbacks across all salons (Protected - Admin only)
 router.get('/feedbacks', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const feedbacks = await Feedback.find()
-      .sort({ createdAt: -1 })
-      .populate('salonId', 'name location')
-      .populate('professionalId', 'name')
-      .lean(); // Convert to plain JavaScript objects
+    const { page, limit } = getPaginationParams(req.query);
+    const skip = (page - 1) * limit;
+    
+    const [feedbacks, total] = await Promise.all([
+      Feedback.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('salonId', 'name location')
+        .populate('professionalId', 'name')
+        .lean(), // Convert to plain JavaScript objects
+      Feedback.countDocuments()
+    ]);
     
     // Transform data to match frontend expectations
     const transformedFeedbacks = feedbacks.map(feedback => ({
@@ -273,7 +318,8 @@ router.get('/feedbacks', authenticateToken, requireAdmin, async (req, res) => {
       appointmentId: feedback.appointmentId
     }));
     
-    res.json(transformedFeedbacks);
+    const response = buildPaginatedResponse(transformedFeedbacks, total, page, limit);
+    res.json(response);
   } catch (err) {
     console.error('Error fetching feedbacks:', err);
     res.status(500).json({ message: 'Failed to fetch feedbacks' });
@@ -368,14 +414,23 @@ router.get('/notifications/status', authenticateToken, requireAdmin, (req, res) 
 // GET: All salons with their approval status (Protected - Admin only)
 router.get('/salons', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { status } = req.query; // Can filter by status: pending, approved, rejected
-    const query = status ? { approvalStatus: status } : {};
+    const { status: statusFilter, page, limit } = req.query;
+    const query = statusFilter ? { approvalStatus: statusFilter } : {};
     
-    const salons = await Salon.find(query)
-      .select('-password')
-      .sort({ createdAt: -1 });
+    const { skip, limit: validLimit } = getPaginationParams({ page, limit });
     
-    res.json(salons);
+    const [salons, total] = await Promise.all([
+      Salon.find(query)
+        .select('-password')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(validLimit)
+        .lean(),
+      Salon.countDocuments(query)
+    ]);
+    
+    const response = buildPaginatedResponse(salons, total, parseInt(page) || 1, validLimit);
+    res.json(response);
   } catch (err) {
     console.error('Error fetching salons:', err);
     res.status(500).json({ message: 'Failed to fetch salons' });

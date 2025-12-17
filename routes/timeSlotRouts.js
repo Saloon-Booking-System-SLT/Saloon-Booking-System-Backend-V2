@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const router = express.Router();
 const TimeSlot = require("../models/TimeSlot");
 
-// ✅ GET time slots for a specific professional and date
+// ✅ OPTIMIZED: GET time slots for a specific professional and date
 router.get("/", async (req, res) => {
   const { professionalId, date } = req.query;
 
@@ -15,7 +15,9 @@ router.get("/", async (req, res) => {
     const slots = await TimeSlot.find({
       professionalId: new mongoose.Types.ObjectId(professionalId),
       date: date,
-    });
+    })
+    .select('_id startTime endTime isBooked date professionalId') // Only select needed fields
+    .lean(); // Memory optimization
 
     return res.json(slots);
   } catch (err) {

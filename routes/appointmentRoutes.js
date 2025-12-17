@@ -6,6 +6,7 @@ const Professional = require("../models/Professional");
 const Salon = require("../models/Salon");
 const dayjs = require("dayjs");
 const notificationService = require("../services/notificationService");
+const { getPaginationParams, buildPaginatedResponse } = require("../utils/queryHelpers");
 
 // 🔧 FIXED: Handle undefined/empty duration strings
 const durationToMinutes = (durationStr) => {
@@ -34,31 +35,36 @@ const computeEndTime = (startTime, duration) => {
   return `${endH}:${endM}`;
 };
 
-// 🔁 Auto-generate hourly time slots (9 AM - 6 PM) for all professionals for the next 7 days
+// 🔁 OPTIMIZED: Generate time slots in batches to avoid memory issues
 const generateWeeklyTimeSlots = async () => {
   try {
-    const professionals = await Professional.find();
+    // Use cursor to process professionals one by one
+    const cursor = Professional.find().select('_id salonId').lean().cursor();
+    let professionalCount = 0;
 
-    for (let i = 0; i < 7; i++) {
-      const date = dayjs().add(i, "day").format("YYYY-MM-DD");
-
-      for (const prof of professionals) {
+    for await (const prof of cursor) {
+      for (let i = 0; i < 7; i++) {
+        const date = dayjs().add(i, "day").format("YYYY-MM-DD");
         let currentTime = dayjs(`${date}T09:00`);
         const endTime = dayjs(`${date}T18:00`);
+
+        // Batch insert slots for this professional on this day
+        const slotsToCreate = [];
 
         while (currentTime.isBefore(endTime)) {
           const slotStart = currentTime.format("HH:mm");
           const slotEnd = currentTime.add(5, "minute").format("HH:mm");
 
+          // Check if exists - use lean() and limit result
           const exists = await TimeSlot.findOne({
             professionalId: prof._id,
             date,
             startTime: slotStart,
             endTime: slotEnd,
-          });
+          }).select('_id').lean();
 
           if (!exists) {
-            await TimeSlot.create({
+            slotsToCreate.push({
               salonId: prof.salonId,
               professionalId: prof._id,
               date,
@@ -70,22 +76,43 @@ const generateWeeklyTimeSlots = async () => {
 
           currentTime = currentTime.add(5, "minute");
         }
+
+        // Batch insert to reduce DB calls
+        if (slotsToCreate.length > 0) {
+          await TimeSlot.insertMany(slotsToCreate, { ordered: false, lean: true });
+        }
       }
+      professionalCount++;
     }
-    console.log("✅ Weekly time slots generated successfully");
+    
+    console.log(`✅ Weekly time slots generated for ${professionalCount} professionals`);
   } catch (error) {
-    console.error("❌ Error generating weekly time slots:", error);
+    // Ignore duplicate key errors from insertMany
+    if (error.code !== 11000) {
+      console.error("❌ Error generating weekly time slots:", error);
+    }
   }
 };
 
-// Run on server start
-generateWeeklyTimeSlots();
+// DISABLED: Don't run on server start - this causes memory issues
+// Only run if explicitly triggered or via cron job
+// generateWeeklyTimeSlots();
 
-// ✅ GET appointments by salonId with optional filters
+// Endpoint to manually trigger slot generation (for admin/cron use)
+router.post("/generate-slots", async (req, res) => {
+  try {
+    await generateWeeklyTimeSlots();
+    res.json({ success: true, message: "Time slots generated successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ✅ OPTIMIZED: GET appointments by salonId with pagination
 router.get("/salon/:id", async (req, res) => {
   try {
     const salonId = req.params.id;
-    const { date, professionalId } = req.query;
+    const { date, professionalId, page, limit } = req.query;
     
     console.log(`🔍 Fetching appointments for salon: ${salonId}`);
     console.log(`📅 Date filter: ${date || 'none'}`);
@@ -97,31 +124,45 @@ router.get("/salon/:id", async (req, res) => {
 
     console.log('🔎 Query object:', JSON.stringify(query));
 
-    const appointments = await Appointment.find(query)
-      .sort({ date: 1, startTime: 1 })
-      .populate("salonId")
-      .populate("professionalId");
+    const { skip, limit: validLimit } = getPaginationParams({ page, limit });
+    
+    const [appointments, total] = await Promise.all([
+      Appointment.find(query)
+        .sort({ date: 1, startTime: 1 })
+        .skip(skip)
+        .limit(validLimit)
+        .populate("salonId", "name") // Only select name field
+        .populate("professionalId", "name") // Only select name field
+        .lean(), // Use lean for memory efficiency
+      Appointment.countDocuments(query)
+    ]);
 
     console.log(`✅ Found ${appointments.length} appointments for salon ${salonId}`);
 
-    res.json(appointments);
+    const response = buildPaginatedResponse(appointments, total, parseInt(page) || 1, validLimit);
+    res.json(response);
   } catch (err) {
     console.error("❌ Error fetching appointments:", err);
     res.status(500).json({ message: "Failed to fetch appointments", error: err.message });
   }
 });
 
-// 🧪 Test route to check all appointments in database
+// 🧪 OPTIMIZED: Test route with pagination
 router.get("/test/all", async (req, res) => {
   try {
     console.log("🧪 Testing database connection...");
     
-    const allAppointments = await Appointment.find();
+    const { page, limit } = getPaginationParams(req.query);
+    
     const totalCount = await Appointment.countDocuments();
+    const allAppointments = await Appointment.find()
+      .select('_id salonId date status user.name') // Only select needed fields
+      .limit(limit)
+      .lean();
     
     console.log(`📊 Total appointments in database: ${totalCount}`);
     
-    // Group by salonId for debugging
+    // Group by salonId for debugging (use only first page for grouping)
     const bySalon = {};
     allAppointments.forEach(appt => {
       const salonId = appt.salonId?.toString() || 'unknown';
@@ -140,7 +181,8 @@ router.get("/test/all", async (req, res) => {
         date: a.date,
         status: a.status,
         user: a.user?.name
-      }))
+      })),
+      pagination: { page, limit }
     });
   } catch (err) {
     console.error("❌ Test route error:", err);
@@ -325,9 +367,9 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ... rest of your routes remain the same
+// OPTIMIZED: Get appointments with pagination
 router.get("/", async (req, res) => {
-  const { email, phone } = req.query;
+  const { email, phone, page, limit } = req.query;
   try {
     const query = email
       ? { "user.email": email }
@@ -335,8 +377,20 @@ router.get("/", async (req, res) => {
       ? { "user.phone": phone }
       : {};
 
-    const result = await Appointment.find(query).sort({ createdAt: -1 }).populate("salonId");
-    res.json(result);
+    const { skip, limit: validLimit } = getPaginationParams({ page, limit });
+    
+    const [result, total] = await Promise.all([
+      Appointment.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(validLimit)
+        .populate("salonId", "name email phone") // Only select needed fields
+        .lean(),
+      Appointment.countDocuments(query)
+    ]);
+    
+    const response = buildPaginatedResponse(result, total, parseInt(page) || 1, validLimit);
+    res.json(response);
   } catch (err) {
     console.error("❌ Error fetching appointments:", err);
     res.status(500).json({ message: "Error fetching appointments" });
@@ -345,7 +399,10 @@ router.get("/", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const appointment = await Appointment.findById(req.params.id);
+    const appointment = await Appointment.findById(req.params.id)
+      .select('_id professionalId date startTime endTime') // Only select needed fields
+      .lean();
+      
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
     await Appointment.findByIdAndDelete(req.params.id);

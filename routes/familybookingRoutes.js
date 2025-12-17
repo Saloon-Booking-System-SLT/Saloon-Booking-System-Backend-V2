@@ -159,10 +159,11 @@ router.get('/customer', async (req, res) => {
     const bookings = await FamilyBooking.find(query)
       .populate('appointments.serviceId')
       .populate('appointments.professionalId')
-      .populate('salonId')
+      .populate('salonId', 'name location phone') // Only select needed fields
       .sort({ bookingDate: -1 })
       .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .skip((page - 1) * limit)
+      .lean(); // Memory optimization
 
     const total = await FamilyBooking.countDocuments(query);
 
@@ -198,21 +199,26 @@ router.get('/available-slots', async (req, res) => {
       });
     }
 
-    // Get all professionals for the salon
+    // Get all professionals for the salon with limit
     const professionals = await Professional.find({ 
       salonId, 
       available: true 
-    });
+    })
+    .select('_id name available') // Only select needed fields
+    .limit(50) // Limit to prevent memory issues
+    .lean();
 
     // Generate available time slots
     const availableSlots = generateTimeSlots('9:00 AM', '6:00 PM', parseInt(duration));
 
-    // Get booked slots for the date
+    // Get booked slots for the date with field selection
     const bookedSlots = await TimeSlot.find({
       salonId,
       date: date,
       isBooked: true
-    });
+    })
+    .select('startTime') // Only select needed field
+    .lean();
 
     const bookedTimes = bookedSlots.map(slot => slot.startTime);
     const filteredSlots = availableSlots.filter(slot => !bookedTimes.includes(slot));

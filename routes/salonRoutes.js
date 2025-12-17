@@ -8,6 +8,7 @@ const cloudinary = require("../config/cloudinary");
 const { generateToken } = require("../utils/jwtUtils");
 const { authenticateToken, requireOwner } = require("../middleware/authMiddleware");
 const notificationService = require("../services/notificationService");
+const { getPaginationParams, buildPaginatedResponse } = require("../utils/queryHelpers");
 
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
@@ -647,13 +648,25 @@ router.get("/owner/my-salon", authenticateToken, requireOwner, async (req, res) 
 // ✅ Get all salons (public) - Only show approved salons
 router.get("/", async (req, res) => {
   try {
-    const { location } = req.query;
+    const { location, page, limit } = req.query;
     const query = { 
       approvalStatus: 'approved',
       ...(location && { location: { $regex: location, $options: "i" } })
     };
-    const salons = await Salon.find(query).select('-password');
-    res.json(salons);
+    
+    const { skip, limit: validLimit } = getPaginationParams({ page, limit });
+    
+    const [salons, total] = await Promise.all([
+      Salon.find(query)
+        .select('-password -resetPasswordToken -resetPasswordExpires') // Exclude sensitive fields
+        .skip(skip)
+        .limit(validLimit)
+        .lean(),
+      Salon.countDocuments(query)
+    ]);
+    
+    const response = buildPaginatedResponse(salons, total, parseInt(page) || 1, validLimit);
+    res.json(response);
   } catch (err) {
     console.error("Get salons error:", err);
     res.status(500).json({ message: "Server error" });
@@ -668,7 +681,10 @@ router.get("/nearby", async (req, res) => {
   }
 
   try {
-    const allSalons = await Salon.find({ approvalStatus: 'approved' }).select('-password');
+    const allSalons = await Salon.find({ approvalStatus: 'approved' })
+      .select('-password -resetPasswordToken -resetPasswordExpires')
+      .limit(100) // Limit to prevent memory issues
+      .lean();
     const districts = {
       colombo: { lat: 6.9271, lng: 79.8612 },
       kandy: { lat: 7.2906, lng: 80.6337 },
@@ -796,20 +812,24 @@ router.get("/owner/profile", authenticateToken, requireOwner, async (req, res) =
   }
 });
 
-// ✅ Clean up duplicate salons (admin utility)
+// ✅ OPTIMIZED: Clean up duplicate salons (admin utility) with batching
 router.delete("/cleanup/duplicates", async (req, res) => {
   try {
-    const salons = await Salon.find();
+    const salons = await Salon.find()
+      .select('_id email name location') // Only select needed fields
+      .lean();
+      
     const duplicatesRemoved = [];
     const seenEmails = new Set();
     const seenNames = new Set();
+    const idsToDelete = [];
     
     for (let salon of salons) {
       const emailKey = salon.email.toLowerCase();
       const nameLocationKey = `${salon.name.toLowerCase()}-${salon.location.toLowerCase()}`;
       
       if (seenEmails.has(emailKey) || seenNames.has(nameLocationKey)) {
-        await Salon.findByIdAndDelete(salon._id);
+        idsToDelete.push(salon._id);
         duplicatesRemoved.push({
           id: salon._id,
           name: salon.name,
@@ -820,6 +840,11 @@ router.delete("/cleanup/duplicates", async (req, res) => {
         seenEmails.add(emailKey);
         seenNames.add(nameLocationKey);
       }
+    }
+    
+    // Batch delete to reduce DB calls
+    if (idsToDelete.length > 0) {
+      await Salon.deleteMany({ _id: { $in: idsToDelete } });
     }
 
     res.json({

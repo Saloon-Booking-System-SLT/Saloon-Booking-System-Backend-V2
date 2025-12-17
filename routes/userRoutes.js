@@ -111,7 +111,10 @@ router.post('/phone-login', async (req, res) => {
 // Get current user profile (protected)
 router.get('/profile', authenticateToken, requireCustomer, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId);
+    const user = await User.findById(req.user.userId)
+      .select('-__v') // Exclude version key
+      .lean(); // Memory optimization
+      
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }

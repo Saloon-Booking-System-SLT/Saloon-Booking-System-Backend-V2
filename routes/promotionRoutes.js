@@ -3,26 +3,51 @@ const router = express.Router();
 const Promotion = require('../models/Promotion');
 const notificationService = require('../services/notificationService');
 const User = require('../models/User');
+const { getPaginationParams, buildPaginatedResponse } = require('../utils/queryHelpers');
 
-// GET: All promotions
+// GET: All promotions with pagination
 router.get('/', async (req, res) => {
   try {
-    const promotions = await Promotion.find()
-      .populate('salonId', 'name')
-      .sort({ createdAt: -1 });
-    res.json(promotions);
+    const { page, limit } = getPaginationParams(req.query);
+    const skip = (page - 1) * limit;
+    
+    const [promotions, total] = await Promise.all([
+      Promotion.find()
+        .populate('salonId', 'name')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Promotion.countDocuments()
+    ]);
+    
+    const response = buildPaginatedResponse(promotions, total, page, limit);
+    res.json(response);
   } catch (err) {
     console.error('Error fetching promotions:', err);
     res.status(500).json({ message: 'Failed to fetch promotions' });
   }
 });
 
-// GET: Promotions by salon
+// GET: Promotions by salon with pagination
 router.get('/salon/:salonId', async (req, res) => {
   try {
-    const promotions = await Promotion.find({ salonId: req.params.salonId })
-      .sort({ createdAt: -1 });
-    res.json(promotions);
+    const { page, limit } = getPaginationParams(req.query);
+    const skip = (page - 1) * limit;
+    
+    const query = { salonId: req.params.salonId };
+    
+    const [promotions, total] = await Promise.all([
+      Promotion.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Promotion.countDocuments(query)
+    ]);
+    
+    const response = buildPaginatedResponse(promotions, total, page, limit);
+    res.json(response);
   } catch (err) {
     console.error('Error fetching salon promotions:', err);
     res.status(500).json({ message: 'Failed to fetch salon promotions' });
@@ -84,8 +109,11 @@ router.post('/:id/send-emails', async (req, res) => {
     let customerList = [];
     
     if (targetCustomers === 'all') {
-      // Get all customers
-      customerList = await User.find({ role: 'customer' }).select('name email');
+      // Get all customers with limit to prevent memory issues
+      customerList = await User.find({ role: 'customer' })
+        .select('name email')
+        .limit(500) // Limit to 500 customers at a time
+        .lean();
     } else if (targetCustomers === 'recent') {
       // Get customers who booked in the last 6 months
       const sixMonthsAgo = new Date();
@@ -94,18 +122,25 @@ router.post('/:id/send-emails', async (req, res) => {
       const Appointment = require('../models/Appointment');
       const recentAppointments = await Appointment.find({
         createdAt: { $gte: sixMonthsAgo }
-      }).distinct('user.email');
+      })
+      .distinct('user.email')
+      .limit(500); // Limit query results
       
       customerList = await User.find({ 
         email: { $in: recentAppointments },
         role: 'customer'
-      }).select('name email');
+      })
+      .select('name email')
+      .lean();
     } else if (Array.isArray(targetCustomers)) {
-      // Specific email list
+      // Specific email list (limit to 100 at a time)
+      const limitedEmails = targetCustomers.slice(0, 100);
       customerList = await User.find({ 
-        email: { $in: targetCustomers },
+        email: { $in: limitedEmails },
         role: 'customer'
-      }).select('name email');
+      })
+      .select('name email')
+      .lean();
     }
     
     if (customerList.length === 0) {

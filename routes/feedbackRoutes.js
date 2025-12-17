@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Feedback = require("../models/feedbackModel.js"); 
 const Professional = require("../models/Professional.js");
+const { getPaginationParams, buildPaginatedResponse } = require("../utils/queryHelpers");
 
 // 📥 Submit feedback (Customer side)
 router.post("/", async (req, res) => {
@@ -17,7 +18,7 @@ router.post("/", async (req, res) => {
     const existingFeedback = await Feedback.findOne({
       appointmentId,
       userEmail
-    });
+    }).lean();
 
     if (existingFeedback) {
       return res.status(400).json({ message: "You have already submitted feedback for this appointment" });
@@ -57,7 +58,7 @@ router.get("/check/:appointmentId", async (req, res) => {
     const existingFeedback = await Feedback.findOne({
       appointmentId,
       userEmail: email
-    });
+    }).lean();
 
     res.json({ hasReviewed: !!existingFeedback });
   } catch (err) {
@@ -66,41 +67,67 @@ router.get("/check/:appointmentId", async (req, res) => {
   }
 });
 
-// 📄 Get all feedbacks for a salon (Owner side)
+// 📄 Get all feedbacks for a salon (Owner side) with pagination
 router.get("/salon/:salonId", async (req, res) => {
   try {
-    const feedbacks = await Feedback.find({ 
+    const { page, limit } = getPaginationParams(req.query);
+    const skip = (page - 1) * limit;
+    
+    const query = {
       salonId: req.params.salonId,
       status: 'approved' // ✅ Only show approved feedbacks to public
-    })
-      .sort({ createdAt: -1 }) // newest first
-      .populate('professionalId', 'name');
-    res.json(feedbacks);
+    };
+    
+    const [feedbacks, total] = await Promise.all([
+      Feedback.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('professionalId', 'name')
+        .lean(),
+      Feedback.countDocuments(query)
+    ]);
+    
+    const response = buildPaginatedResponse(feedbacks, total, page, limit);
+    res.json(response);
   } catch (err) {
     console.error("Error fetching salon feedbacks:", err);
     res.status(500).json({ message: "Failed to fetch salon feedbacks" });
   }
 });
 
-// GET: Fetch all feedbacks for a professional
+// GET: Fetch all feedbacks for a professional with pagination
 router.get("/professionals/:professionalId", async (req, res) => {
   try {
     const { professionalId } = req.params;
+    const { page, limit } = getPaginationParams(req.query);
+    const skip = (page - 1) * limit;
 
-    // Find feedbacks and populate professional details
-    const feedbacks = await Feedback.find({ professionalId })
-      .sort({ createdAt: -1 })
-      .populate("professionalId", "name image role");
+    // Find feedbacks with pagination
+    const [feedbacks, total] = await Promise.all([
+      Feedback.find({ professionalId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("professionalId", "name image role")
+        .lean(),
+      Feedback.countDocuments({ professionalId })
+    ]);
 
-    // Calculate average rating
-    const averageRating = feedbacks.length
-      ? feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length
+    // Calculate average rating from all feedbacks (not just current page)
+    const allRatings = await Feedback.find({ professionalId })
+      .select('rating')
+      .lean();
+    
+    const averageRating = allRatings.length
+      ? allRatings.reduce((sum, f) => sum + f.rating, 0) / allRatings.length
       : 0;
 
-    // ✅ Return consistent structure
+    // ✅ Return paginated structure
+    const response = buildPaginatedResponse(feedbacks, total, page, limit);
     res.json({
-      feedbacks,
-      averageRating,
+      ...response,
+      averageRating
     });
   } catch (err) {
     console.error("Error fetching professional feedbacks:", err);
@@ -108,24 +135,31 @@ router.get("/professionals/:professionalId", async (req, res) => {
   }
 });
 
-// GET: Fetch all professionals for a salon with their feedbacks
+// GET: Fetch professionals for a salon with their feedbacks (optimized)
 router.get("/with-feedbacks/:salonId", async (req, res) => {
   try {
     const { salonId } = req.params;
 
-    // Fetch professionals for this salon
-    const professionals = await Professional.find({ salonId }).lean(); // lean() returns plain JS objects
+    // Fetch professionals for this salon with lean
+    const professionals = await Professional.find({ salonId })
+      .select('_id name image role') // Only select needed fields
+      .limit(50) // Limit to prevent memory issues
+      .lean();
 
-    // Attach feedbacks to each professional
+    // Attach feedbacks to each professional with limits
     const professionalsWithFeedbacks = await Promise.all(
       professionals.map(async (pro) => {
-        const feedbacks = await Feedback.find({ professionalId: pro._id }).sort({ createdAt: -1 });
-        // Optional: calculate average rating
+        const feedbacks = await Feedback.find({ professionalId: pro._id })
+          .sort({ createdAt: -1 })
+          .limit(20) // Limit feedbacks per professional
+          .lean();
+          
+        // Calculate average rating
         const averageRating = feedbacks.length > 0
           ? feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length
           : null;
 
-        return { ...pro, feedbacks, averageRating };
+        return { ...pro, feedbacks, averageRating, feedbackCount: feedbacks.length };
       })
     );
 
