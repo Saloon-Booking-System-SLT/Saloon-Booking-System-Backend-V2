@@ -799,7 +799,8 @@ router.get("/owner/profile", authenticateToken, requireOwner, async (req, res) =
 // ✅ Clean up duplicate salons (admin utility)
 router.delete("/cleanup/duplicates", async (req, res) => {
   try {
-    const salons = await Salon.find();
+    // Use lean() and select only needed fields to reduce memory usage
+    const salons = await Salon.find().select('_id name email location').lean().limit(1000);
     const duplicatesRemoved = [];
     const seenEmails = new Set();
     const seenNames = new Set();

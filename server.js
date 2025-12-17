@@ -276,8 +276,27 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   if (process.env.NODE_ENV === 'production') {
     console.log(`🌍 Production server running on port ${PORT}`);
     console.log(`🌐 CORS enabled for production domains`);
+    console.log(`💾 Memory limit: ${process.memoryUsage().heapTotal / 1024 / 1024} MB`);
   }
   console.log(`💳 Payment endpoint: POST http://localhost:${PORT}/api/payments/create-payment-intent`);
+  
+  // Periodic memory monitoring for production
+  if (process.env.NODE_ENV === 'production') {
+    setInterval(() => {
+      const memUsage = process.memoryUsage();
+      if (memUsage.heapUsed / memUsage.heapTotal > 0.9) {
+        console.warn('⚠️ High memory usage detected:', {
+          used: `${(memUsage.heapUsed / 1024 / 1024).toFixed(2)} MB`,
+          total: `${(memUsage.heapTotal / 1024 / 1024).toFixed(2)} MB`,
+          percentage: `${((memUsage.heapUsed / memUsage.heapTotal) * 100).toFixed(1)}%`
+        });
+        if (global.gc) {
+          console.log('🧹 Running garbage collection...');
+          global.gc();
+        }
+      }
+    }, 60000); // Check every minute
+  }
 });
 
 // Handle server errors

@@ -116,7 +116,8 @@ router.get("/test/all", async (req, res) => {
   try {
     console.log("🧪 Testing database connection...");
     
-    const allAppointments = await Appointment.find();
+    // Limit to prevent memory overflow - use lean() for better performance
+    const allAppointments = await Appointment.find().limit(100).lean();
     const totalCount = await Appointment.countDocuments();
     
     console.log(`📊 Total appointments in database: ${totalCount}`);

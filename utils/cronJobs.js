@@ -73,10 +73,14 @@ class CronJobManager {
       const Appointment = require('../models/Appointment');
 
       // Find completed appointments from yesterday that haven't been reviewed
+      // Use lean() and limit to prevent memory overflow
       const completedAppointments = await Appointment.find({
         date: yesterdayDateStr,
         status: 'completed'
-      });
+      })
+      .select('_id user salonName serviceName date')
+      .lean()
+      .limit(100); // Prevent memory overflow on free tier
 
       console.log(`📋 Found ${completedAppointments.length} completed appointments from yesterday`);
 
