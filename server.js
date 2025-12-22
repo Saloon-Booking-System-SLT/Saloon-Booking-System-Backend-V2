@@ -272,7 +272,7 @@ process.on('SIGTERM', () => {
 });
 
 // Start server
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server is running at http://localhost:${PORT}`);
   if (process.env.NODE_ENV === 'production') {
