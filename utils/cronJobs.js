@@ -15,13 +15,18 @@ class CronJobManager {
   initialize() {
     console.log('🕐 Initializing Cron Jobs for Email Notifications...');
     
-    // Daily appointment reminders at 9 AM
-    this.setupDailyReminders();
-    
-    // Feedback request follow-up (day after appointment)
-    this.setupFeedbackRequests();
-    
-    console.log('✅ Cron Jobs initialized successfully');
+    try {
+      // Daily appointment reminders at 9 AM
+      this.setupDailyReminders();
+      
+      // Feedback request follow-up (day after appointment)
+      this.setupFeedbackRequests();
+      
+      console.log('✅ Cron Jobs initialized successfully');
+    } catch (error) {
+      console.error('❌ Error initializing cron jobs:', error);
+      console.log('⚠️ Continuing without scheduled notifications');
+    }
   }
 
   // Send appointment reminders every day at 9 AM

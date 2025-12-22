@@ -99,8 +99,9 @@ router.get("/salon/:id", async (req, res) => {
 
     const appointments = await Appointment.find(query)
       .sort({ date: 1, startTime: 1 })
-      .populate("salonId")
-      .populate("professionalId");
+      .populate("salonId", "name location")
+      .populate("professionalId", "name")
+      .lean();
 
     console.log(`✅ Found ${appointments.length} appointments for salon ${salonId}`);
 
@@ -116,7 +117,7 @@ router.get("/test/all", async (req, res) => {
   try {
     console.log("🧪 Testing database connection...");
     
-    const allAppointments = await Appointment.find();
+    const allAppointments = await Appointment.find().limit(100).lean();
     const totalCount = await Appointment.countDocuments();
     
     console.log(`📊 Total appointments in database: ${totalCount}`);

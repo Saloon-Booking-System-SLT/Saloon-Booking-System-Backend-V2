@@ -9,6 +9,8 @@ dotenv.config();
 
 // Route imports
 const salonRoutes = require("./routes/salonRoutes");
+const salonWithRatingsRoute = require("./routes/salonWithRatingsRoute");
+const professionalsWithRatingsRoute = require("./routes/professionalsWithRatingsRoute");
 const serviceRoutes = require('./routes/serviceRoutes');
 const professionalRoutes = require("./routes/professionalRoutes");
 const timeSlotRoutes = require("./routes/timeSlotRouts");
@@ -158,10 +160,19 @@ mongoose.connect(process.env.MONGO_URI)
   console.log("✅ MongoDB connected");
   
   // Initialize email notification cron jobs after database connection
-  const cronJobManager = require('./utils/cronJobs');
-  cronJobManager.initialize();
+  try {
+    const cronJobManager = require('./utils/cronJobs');
+    cronJobManager.initialize();
+    console.log('✅ Cron jobs initialized');
+  } catch (error) {
+    console.error('⚠️ Cron job initialization failed:', error.message);
+    console.log('⚠️ Server will continue without scheduled notifications');
+  }
 })
-.catch((err) => console.error("❌ MongoDB connection error:", err));
+.catch((err) => {
+  console.error("❌ MongoDB connection error:", err);
+  console.log('⚠️ Server will continue without database connection');
+});
 
 // Health check route for debugging CORS
 app.get('/api/health', (req, res) => {
@@ -198,8 +209,10 @@ app.get('/health', (req, res) => {
 
 // API Routes
 app.use('/api/users', userRoutes);
+app.use('/api/salons', salonWithRatingsRoute);  // Optimized ratings endpoint
 app.use('/api/salons', salonRoutes);          // Includes /login and /register
 app.use('/api/services', serviceRoutes);
+app.use('/api/professionals', professionalsWithRatingsRoute); // Optimized professionals endpoint
 app.use('/api/professionals', professionalRoutes);
 app.use('/api/timeslots', timeSlotRoutes);
 app.use('/api/appointments', appointmentRoutes);
@@ -237,15 +250,23 @@ app.get('/', (req, res) => {
   res.send('✅ Salon API is running!');
 });
 
-// Global error handlers
+// Global error handlers - Production-safe (no process.exit)
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
-  process.exit(1);
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  } else {
+    console.log('⚠️ Production mode: Server continuing despite error');
+  }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  } else {
+    console.log('⚠️ Production mode: Server continuing despite error');
+  }
 });
 
 // Graceful shutdown
@@ -270,6 +291,8 @@ server.on('error', (error) => {
   console.error('❌ Server error:', error);
   if (error.code === 'EADDRINUSE') {
     console.error(`❌ Port ${PORT} is already in use`);
-    process.exit(1);
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
   }
 });

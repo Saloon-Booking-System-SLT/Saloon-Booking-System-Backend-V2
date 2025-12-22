@@ -42,4 +42,9 @@ const salonSchema = new mongoose.Schema({
   }
 });
 
+// Add indexes for faster queries
+salonSchema.index({ approvalStatus: 1 });
+salonSchema.index({ location: 1 });
+salonSchema.index({ email: 1 });
+
 module.exports = mongoose.model("Salon", salonSchema);

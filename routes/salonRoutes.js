@@ -652,7 +652,9 @@ router.get("/", async (req, res) => {
       approvalStatus: 'approved',
       ...(location && { location: { $regex: location, $options: "i" } })
     };
-    const salons = await Salon.find(query).select('-password');
+    const salons = await Salon.find(query)
+      .select('-password')
+      .lean();
     res.json(salons);
   } catch (err) {
     console.error("Get salons error:", err);
@@ -668,7 +670,9 @@ router.get("/nearby", async (req, res) => {
   }
 
   try {
-    const allSalons = await Salon.find({ approvalStatus: 'approved' }).select('-password');
+    const allSalons = await Salon.find({ approvalStatus: 'approved' })
+      .select('-password')
+      .lean();
     const districts = {
       colombo: { lat: 6.9271, lng: 79.8612 },
       kandy: { lat: 7.2906, lng: 80.6337 },
@@ -799,7 +803,7 @@ router.get("/owner/profile", authenticateToken, requireOwner, async (req, res) =
 // ✅ Clean up duplicate salons (admin utility)
 router.delete("/cleanup/duplicates", async (req, res) => {
   try {
-    const salons = await Salon.find();
+    const salons = await Salon.find().limit(1000).lean();
     const duplicatesRemoved = [];
     const seenEmails = new Set();
     const seenNames = new Set();
