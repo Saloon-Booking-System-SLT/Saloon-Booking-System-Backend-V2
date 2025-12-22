@@ -10,6 +10,7 @@ dotenv.config();
 // Route imports
 const salonRoutes = require("./routes/salonRoutes");
 const salonWithRatingsRoute = require("./routes/salonWithRatingsRoute");
+const professionalsWithRatingsRoute = require("./routes/professionalsWithRatingsRoute");
 const serviceRoutes = require('./routes/serviceRoutes');
 const professionalRoutes = require("./routes/professionalRoutes");
 const timeSlotRoutes = require("./routes/timeSlotRouts");
@@ -211,6 +212,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/salons', salonWithRatingsRoute);  // Optimized ratings endpoint
 app.use('/api/salons', salonRoutes);          // Includes /login and /register
 app.use('/api/services', serviceRoutes);
+app.use('/api/professionals', professionalsWithRatingsRoute); // Optimized professionals endpoint
 app.use('/api/professionals', professionalRoutes);
 app.use('/api/timeslots', timeSlotRoutes);
 app.use('/api/appointments', appointmentRoutes);
