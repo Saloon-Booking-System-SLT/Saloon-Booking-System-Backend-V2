@@ -1,22 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const Payment = require('../models/Payment');
+const logger = require('../utils/logger');
 
 // Initialize Stripe with environment variable
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-console.log('🔑 Stripe initialized with environment variable');
-console.log('💰 Payment routes loading...');
+logger.debug('Stripe initialized');
+logger.debug('Payment routes loading...');
 
 // Create payment intent
 router.post('/create-payment-intent', async (req, res) => {
-  console.log('✅ /api/payments/create-payment-intent HIT!');
-  console.log('Request body:', req.body);
+  logger.http('Payment intent request received');
+  logger.debug('Request body:', req.body);
   
   try {
     // Check if Stripe is initialized
     if (!stripe) {
-      console.error('❌ Stripe not initialized');
+      logger.error('Stripe not initialized');
       return res.status(500).json({ 
         success: false,
         error: 'Payment service not available' 
@@ -25,10 +26,10 @@ router.post('/create-payment-intent', async (req, res) => {
 
     const { amount, currency = 'lkr', customer_email } = req.body;
 
-    console.log('🔍 Validating request...');
-    console.log('💵 Amount:', amount, 'cents');
-    console.log('💰 Currency:', currency);
-    console.log('📧 Email:', customer_email);
+    logger.debug('Validating payment request...');
+    logger.debug('Amount:', amount, 'cents');
+    logger.debug('Currency:', currency);
+    console.log('Email:', customer_email);
 
     // Validate required fields
     if (!amount || amount <= 0) {
@@ -45,14 +46,14 @@ router.post('/create-payment-intent', async (req, res) => {
       });
     }
 
-    console.log('🚀 Creating Stripe payment intent...');
+    console.log('Creating Stripe payment intent...');
 
     // For testing, let's use USD instead of LKR (better Stripe test mode support)
     // Convert LKR to USD (rough conversion: 1 USD = 200 LKR)
     const usdAmount = Math.max(50, Math.round(amount / 200)); // Minimum $0.50 for Stripe
     
-    console.log('💵 Original amount (LKR cents):', amount);
-    console.log('💲 USD amount (cents):', usdAmount);
+    console.log('Original amount (LKR cents):', amount);
+    console.log('USD amount (cents):', usdAmount);
 
     // Create payment intent with USD
     const paymentIntent = await stripe.paymentIntents.create({
@@ -67,9 +68,9 @@ router.post('/create-payment-intent', async (req, res) => {
       }
     });
 
-    console.log('💰 Payment intent created successfully!');
-    console.log('🆔 Payment Intent ID:', paymentIntent.id);
-    console.log('💵 Amount:', paymentIntent.amount, paymentIntent.currency);
+    console.log('Payment intent created successfully!');
+    console.log('Payment Intent ID:', paymentIntent.id);
+    console.log('Amount:', paymentIntent.amount, paymentIntent.currency);
 
     res.json({ 
       success: true,
@@ -81,7 +82,7 @@ router.post('/create-payment-intent', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('❌ Payment intent error:', err);
+    console.error('Payment intent error:', err);
     console.error('Error type:', err.type);
     console.error('Error code:', err.code);
     
@@ -129,5 +130,5 @@ router.get('/test-stripe', async (req, res) => {
   }
 });
 
-console.log('💰 Payment routes loaded!');
+logger.debug('Payment routes loaded');
 module.exports = router;

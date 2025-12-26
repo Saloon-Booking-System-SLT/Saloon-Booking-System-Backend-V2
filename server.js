@@ -7,6 +7,10 @@ const path = require("path");
 // Load environment variables
 dotenv.config();
 
+// Utilities
+const logger = require('./utils/logger');
+const { apiLimiter, authLimiter, uploadLimiter } = require('./middleware/rateLimiter');
+
 // Route imports
 const salonRoutes = require("./routes/salonRoutes");
 const salonWithRatingsRoute = require("./routes/salonWithRatingsRoute");
@@ -44,11 +48,11 @@ if (process.env.FRONTEND_URL) {
 // CORS Configuration - More permissive for production
 const corsOptions = {
   origin: function (origin, callback) {
-    console.log('🌐 CORS Request from origin:', origin);
+    logger.http('CORS Request from origin:', origin);
     
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
-      console.log('✅ No origin - allowing request');
+      console.log('No origin - allowing request');
       return callback(null, true);
     }
     
@@ -58,7 +62,7 @@ const corsOptions = {
       if (origin.includes('vercel.app') || 
           origin.includes('saloon-booking-system') || 
           origin.includes('localhost')) {
-        console.log('✅ Production: Allowed domain - allowing request');
+        console.log('Production: Allowed domain - allowing request');
         return callback(null, true);
       }
     }
@@ -74,22 +78,22 @@ const corsOptions = {
     ].filter(Boolean);
     
     if (allowedOrigins.includes(origin)) {
-      console.log('✅ Origin in allowed list - allowing request');
+      console.log('Origin in allowed list - allowing request');
       return callback(null, true);
     }
     
     // For development - allow any localhost
     if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-      console.log('✅ Local development - allowing request');
+      console.log('Local development - allowing request');
       return callback(null, true);
     }
     
-    console.log('❌ CORS blocked origin:', origin);
-    console.log('📋 Allowed origins:', allowedOrigins);
+    console.log('CORS blocked origin:', origin);
+    console.log('Allowed origins:', allowedOrigins);
     
     // In production, be more lenient to avoid blocking legitimate requests
     if (process.env.NODE_ENV === 'production') {
-      console.log('⚠️ Production mode: Allowing request anyway');
+      console.log('Production mode: Allowing request anyway');
       return callback(null, true);
     }
     
@@ -142,7 +146,7 @@ app.use((req, res, next) => {
 
 // Add explicit OPTIONS handling for debugging
 app.options('*', (req, res) => {
-  console.log('🔧 OPTIONS preflight request:', {
+  logger.debug('OPTIONS preflight request:', {
     origin: req.headers.origin,
     method: req.headers['access-control-request-method'],
     headers: req.headers['access-control-request-headers']
@@ -154,29 +158,43 @@ app.use(express.json());
 app.use(express.json({ limit: "10mb" })); // handle JSON
 app.use(express.urlencoded({ extended: true, limit: "10mb" })); // handle form data
 
+// Apply rate limiting to all API routes
+app.use('/api/', apiLimiter);
+
+// Apply strict rate limiting to auth endpoints
+app.use('/api/users/login', authLimiter);
+app.use('/api/users/register', authLimiter);
+app.use('/api/salons/login', authLimiter);
+app.use('/api/salons/register', authLimiter);
+app.use('/api/admin/login', authLimiter);
+
+// Apply upload rate limiting
+app.use('/api/services', uploadLimiter);
+app.use('/api/professionals', uploadLimiter);
+
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
 .then(() => {
-  console.log("✅ MongoDB connected");
+  logger.success("MongoDB connected");
   
   // Initialize email notification cron jobs after database connection
   try {
     const cronJobManager = require('./utils/cronJobs');
     cronJobManager.initialize();
-    console.log('✅ Cron jobs initialized');
+    logger.success('Cron jobs initialized');
   } catch (error) {
-    console.error('⚠️ Cron job initialization failed:', error.message);
-    console.log('⚠️ Server will continue without scheduled notifications');
+    logger.warn('Cron job initialization failed:', error.message);
+    logger.warn('Server will continue without scheduled notifications');
   }
 })
 .catch((err) => {
-  console.error("❌ MongoDB connection error:", err);
-  console.log('⚠️ Server will continue without database connection');
+  logger.error("MongoDB connection error:", err);
+  logger.warn('Server will continue without database connection');
 });
 
 // Health check route for debugging CORS
 app.get('/api/health', (req, res) => {
-  console.log('🏥 Health check called from origin:', req.headers.origin);
+  logger.http('Health check called from origin:', req.headers.origin);
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
@@ -198,12 +216,28 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
+  const memUsage = process.memoryUsage();
+  
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    uptime: Math.floor(process.uptime()),
+    uptimeFormatted: `${Math.floor(process.uptime() / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m`,
+    memory: {
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+      external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
+      heapUsagePercent: `${Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100)}%`
+    },
+    database: {
+      status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      connections: mongoose.connections.length,
+      readyState: mongoose.connection.readyState
+    },
+    environment: process.env.NODE_ENV || 'development',
+    nodeVersion: process.version,
+    platform: process.platform
   });
 });
 
@@ -227,13 +261,13 @@ app.use('/api/loyalty', loyaltyRoutes);
 // app.use('/api/payments', paymentRoutes);
 
 // PAYMENT ROUTES - with error handling
-console.log('🔄 Loading payment routes...');
+logger.debug('Loading payment routes...');
 try {
   const paymentRoutes = require("./routes/paymentRoutes");
   app.use('/api/payments', paymentRoutes);
-  console.log('✅ Payment routes registered at /api/payments');
+  logger.debug('Payment routes registered at /api/payments');
 } catch (error) {
-  console.log('❌ Failed to load payment routes:', error.message);
+  logger.warn('Failed to load payment routes:', error.message);
 }
 
 // CORS test route
@@ -247,50 +281,53 @@ app.get('/api/test', (req, res) => {
 
 // Default route
 app.get('/', (req, res) => {
-  res.send('✅ Salon API is running!');
+  res.send('Salon API is running!');
 });
 
 // Global error handlers - Production-safe (no process.exit)
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
+  logger.error('Uncaught Exception:', error);
   if (process.env.NODE_ENV !== 'production') {
     process.exit(1);
   } else {
-    console.log('⚠️ Production mode: Server continuing despite error');
+    logger.warn('Production mode: Server continuing despite error');
   }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   if (process.env.NODE_ENV !== 'production') {
     process.exit(1);
   } else {
-    console.log('⚠️ Production mode: Server continuing despite error');
+    logger.warn('Production mode: Server continuing despite error');
   }
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM received, shutting down gracefully');
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  await mongoose.connection.close();
   process.exit(0);
 });
 
 // Start server
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server is running at http://localhost:${PORT}`);
+  logger.success(`Server is running at http://localhost:${PORT}`);
   if (process.env.NODE_ENV === 'production') {
-    console.log(`🌍 Production server running on port ${PORT}`);
-    console.log(`🌐 CORS enabled for production domains`);
+    logger.info(`Production server running on port ${PORT}`);
+    logger.info(`CORS enabled for production domains`);
   }
-  console.log(`💳 Payment endpoint: POST http://localhost:${PORT}/api/payments/create-payment-intent`);
+  logger.debug(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.debug(`Memory limit: ${process.execArgv.find(arg => arg.includes('max-old-space-size')) || 'default'}`);
+  logger.debug(`Payment endpoint: POST http://localhost:${PORT}/api/payments/create-payment-intent`);
 });
 
 // Handle server errors
 server.on('error', (error) => {
-  console.error('❌ Server error:', error);
+  logger.error('Server error:', error);
   if (error.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use`);
+    logger.error(`Port ${PORT} is already in use`);
     if (process.env.NODE_ENV !== 'production') {
       process.exit(1);
     }

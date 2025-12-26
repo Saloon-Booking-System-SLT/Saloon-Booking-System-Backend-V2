@@ -12,15 +12,26 @@ router.get("/", async (req, res) => {
   }
 
   try {
-    const slots = await TimeSlot.find({
-      professionalId: new mongoose.Types.ObjectId(professionalId),
-      date: date,
-    });
+    let query = { date: date };
+    
+    // Handle "any" professionalId (fetch all professionals' slots for that date)
+    if (professionalId && professionalId !== "any") {
+      // Validate ObjectId before converting
+      if (!mongoose.Types.ObjectId.isValid(professionalId)) {
+        return res.status(400).json({ error: "Invalid professionalId format" });
+      }
+      query.professionalId = new mongoose.Types.ObjectId(professionalId);
+    }
+    // If professionalId is "any", we don't add it to query (returns all professionals' slots)
 
+    const slots = await TimeSlot.find(query).lean(); // Added .lean() for performance
     return res.json(slots);
   } catch (err) {
     console.error("❌ Error fetching time slots:", err);
-    return res.status(500).json({ error: "Failed to fetch time slots" });
+    return res.status(500).json({ 
+      error: "Failed to fetch time slots",
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 

@@ -1,5 +1,6 @@
 // File: config/db.js
 const mongoose = require('mongoose');
+const logger = require('../utils/logger');
 
 const connectDB = async () => {
   try {
@@ -14,11 +15,11 @@ const connectDB = async () => {
       retryWrites: true, // Automatically retry failed writes
       retryReads: true, // Automatically retry failed reads
     });
-    console.log('✅ MongoDB connected');
+    logger.success('MongoDB connected');
   } catch (err) {
-    console.error('❌ MongoDB connection failed:', err.message);
+    logger.error('MongoDB connection error:', err.message);
     // Don't exit process, let the app handle graceful degradation
-    console.log('⚠️ Server will continue with email-only functionality');
+    logger.warn('Server will continue without database connection');
   }
 };
 

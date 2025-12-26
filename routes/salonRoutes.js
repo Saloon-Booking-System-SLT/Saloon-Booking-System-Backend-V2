@@ -20,7 +20,7 @@ try {
   const emailUser = process.env.EMAIL_USER;
   const emailPass = process.env.EMAIL_PASSWORD;
   
-  console.log('🔧 Email Configuration Check:');
+  console.log('Email Configuration Check:');
   console.log('   EMAIL_USER exists:', !!emailUser);
   console.log('   EMAIL_PASSWORD exists:', !!emailPass);
   
@@ -36,19 +36,19 @@ try {
     }
   });
 
-  console.log('✅ Email transporter configured successfully');
+  console.log('Email transporter configured successfully');
   
   // Test the connection
   emailTransporter.verify((error, success) => {
     if (error) {
-      console.log('❌ Email transporter verification failed:', error.message);
+      console.log('Email transporter verification failed:', error.message);
     } else {
-      console.log('✅ Email transporter is ready to send messages');
+      console.log('Email transporter is ready to send messages');
     }
   });
 } catch (error) {
-  console.error('❌ Email transporter setup failed:', error.message);
-  console.log('💡 Please check your .env file and ensure EMAIL_USER and EMAIL_PASSWORD are set');
+  console.error('Email transporter setup failed:', error.message);
+  console.log('Please check your .env file and ensure EMAIL_USER and EMAIL_PASSWORD are set');
   emailTransporter = null;
 }
 

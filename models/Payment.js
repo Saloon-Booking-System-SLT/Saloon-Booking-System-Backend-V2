@@ -4,8 +4,7 @@ const mongoose = require('mongoose');
 const paymentSchema = new mongoose.Schema({
   paymentIntentId: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   appointmentId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -37,8 +36,8 @@ const paymentSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for faster queries
-paymentSchema.index({ paymentIntentId: 1 });
+// Indexes for faster queries
+paymentSchema.index({ paymentIntentId: 1, unique: true });
 paymentSchema.index({ appointmentId: 1 });
 paymentSchema.index({ status: 1 });
 

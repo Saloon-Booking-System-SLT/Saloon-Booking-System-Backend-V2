@@ -74,7 +74,7 @@ const generateWeeklyTimeSlots = async () => {
     }
     console.log("✅ Weekly time slots generated successfully");
   } catch (error) {
-    console.error("❌ Error generating weekly time slots:", error);
+    console.error("Error generating weekly time slots:", error);
   }
 };
 

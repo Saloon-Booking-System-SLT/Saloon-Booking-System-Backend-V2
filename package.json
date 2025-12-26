@@ -6,39 +6,40 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node --max-old-space-size=920 server.js",
     "dev": "nodemon server.js",
-    "build": "npm install"
+    "build": "npm install",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop salon-backend",
+    "pm2:restart": "pm2 restart salon-backend",
+    "pm2:logs": "pm2 logs salon-backend",
+    "pm2:monit": "pm2 monit",
+    "load-test": "node load-test.js"
   },
   "engines": {
     "node": ">=16.0.0",
-    "npm": ">=8.0.0"
+    "npm": ">=7.0.0"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
-    "body-parser": "^2.2.0",
     "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
-    "crypto": "^1.0.1",
     "dotenv": "^16.5.0",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.1.5",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.3",
     "multer": "^2.0.2",
     "node-cron": "^3.0.3",
     "nodemailer": "^7.0.3",
-    "passport": "^0.7.0",
-    "passport-google-oauth20": "^2.0.0",
     "streamifier": "^0.1.1",
     "stripe": "^19.1.0",
     "twilio": "^5.6.1"
   },
-  "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=7.0.0"
+  "devDependencies": {
+    "pm2": "^6.0.14"
   },
   "description": ""
 }
