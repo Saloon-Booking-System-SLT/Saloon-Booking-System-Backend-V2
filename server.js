@@ -28,8 +28,8 @@ const app = express();
 
 // CORS Configuration
 const allowedOrigins = [
-  'http://localhost:5000', // Local development
-  'http://127.0.0.1:5000', // Alternative localhost
+  'http://localhost:3000', // Local development
+  'http://127.0.0.1:3000', // Alternative localhost
   'https://saloon-booking-system-frontend-web-eight.vercel.app', // Your actual Vercel URL
   'https://saloon-booking-system-frontend-web-v2.vercel.app', // Alternative domain pattern
   'https://vercel.app', // Any Vercel subdomain
