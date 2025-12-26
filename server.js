@@ -21,7 +21,7 @@ const familybookingRoutes = require("./routes/familybookingRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const promotionRoutes = require("./routes/promotionRoutes");
 const loyaltyRoutes = require("./routes/loyaltyRoutes");
-// const paymentRoutes = require("./routes/paymentRoutes");
+const paymentRoutes = require('./routes/payment'); // Import the new payment package
 
 // Initialize Express app
 const app = express();
@@ -45,24 +45,24 @@ if (process.env.FRONTEND_URL) {
 const corsOptions = {
   origin: function (origin, callback) {
     console.log('🌐 CORS Request from origin:', origin);
-    
+
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       console.log('✅ No origin - allowing request');
       return callback(null, true);
     }
-    
+
     // For production - be more permissive with Vercel domains
     if (process.env.NODE_ENV === 'production') {
       // Allow any Vercel app domain
-      if (origin.includes('vercel.app') || 
-          origin.includes('saloon-booking-system') || 
-          origin.includes('localhost')) {
+      if (origin.includes('vercel.app') ||
+        origin.includes('saloon-booking-system') ||
+        origin.includes('localhost')) {
         console.log('✅ Production: Allowed domain - allowing request');
         return callback(null, true);
       }
     }
-    
+
     // Check if origin is in allowed list
     const allowedOrigins = [
       'http://localhost:3000',
@@ -72,27 +72,27 @@ const corsOptions = {
       'https://vercel.app',
       process.env.FRONTEND_URL
     ].filter(Boolean);
-    
+
     if (allowedOrigins.includes(origin)) {
       console.log('✅ Origin in allowed list - allowing request');
       return callback(null, true);
     }
-    
+
     // For development - allow any localhost
     if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
       console.log('✅ Local development - allowing request');
       return callback(null, true);
     }
-    
+
     console.log('❌ CORS blocked origin:', origin);
     console.log('📋 Allowed origins:', allowedOrigins);
-    
+
     // In production, be more lenient to avoid blocking legitimate requests
     if (process.env.NODE_ENV === 'production') {
       console.log('⚠️ Production mode: Allowing request anyway');
       return callback(null, true);
     }
-    
+
     return callback(new Error(`CORS policy violation: Origin ${origin} not allowed`));
   },
   credentials: true, // Allow credentials for authentication
@@ -119,24 +119,24 @@ app.use((req, res, next) => {
   // Set CORS headers manually as fallback
   const origin = req.headers.origin;
   if (origin && (
-    origin.includes('vercel.app') || 
-    origin.includes('saloon-booking-system') || 
+    origin.includes('vercel.app') ||
+    origin.includes('saloon-booking-system') ||
     origin.includes('localhost') ||
     process.env.NODE_ENV === 'production'
   )) {
     res.header('Access-Control-Allow-Origin', origin);
   }
-  
+
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-requested-with');
-  
+
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
     return;
   }
-  
+
   next();
 });
 
@@ -156,29 +156,29 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" })); // handle form d
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
-.then(() => {
-  console.log("✅ MongoDB connected");
-  
-  // Initialize email notification cron jobs after database connection
-  try {
-    const cronJobManager = require('./utils/cronJobs');
-    cronJobManager.initialize();
-    console.log('✅ Cron jobs initialized');
-  } catch (error) {
-    console.error('⚠️ Cron job initialization failed:', error.message);
-    console.log('⚠️ Server will continue without scheduled notifications');
-  }
-})
-.catch((err) => {
-  console.error("❌ MongoDB connection error:", err);
-  console.log('⚠️ Server will continue without database connection');
-});
+  .then(() => {
+    console.log("✅ MongoDB connected");
+
+    // Initialize email notification cron jobs after database connection
+    try {
+      const cronJobManager = require('./utils/cronJobs');
+      cronJobManager.initialize();
+      console.log('✅ Cron jobs initialized');
+    } catch (error) {
+      console.error('⚠️ Cron job initialization failed:', error.message);
+      console.log('⚠️ Server will continue without scheduled notifications');
+    }
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB connection error:", err);
+    console.log('⚠️ Server will continue without database connection');
+  });
 
 // Health check route for debugging CORS
 app.get('/api/health', (req, res) => {
   console.log('🏥 Health check called from origin:', req.headers.origin);
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
     origin: req.headers.origin,
     userAgent: req.headers['user-agent']
@@ -220,26 +220,23 @@ app.use("/api/feedback", feedbackRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/uploads/services", express.static(path.join(__dirname, "uploads/services")));
 app.use("/uploads/professionals", express.static(path.join(__dirname, "uploads/professionals")));
-app.use("/api/familybooking", familybookingRoutes); 
+app.use("/api/familybooking", familybookingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
-// app.use('/api/payments', paymentRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // PAYMENT ROUTES - with error handling
 console.log('🔄 Loading payment routes...');
-try {
-  const paymentRoutes = require("./routes/paymentRoutes");
-  app.use('/api/payments', paymentRoutes);
-  console.log('✅ Payment routes registered at /api/payments');
-} catch (error) {
-  console.log('❌ Failed to load payment routes:', error.message);
-}
+// PAYMENT ROUTES
+app.use('/api/payments', paymentRoutes);
+console.log('✅ Payment routes registered at /api/payments');
+
 
 // CORS test route
 app.get('/api/test', (req, res) => {
-  res.json({ 
-    message: '✅ CORS is working!', 
+  res.json({
+    message: '✅ CORS is working!',
     origin: req.headers.origin,
     timestamp: new Date().toISOString()
   });

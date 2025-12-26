@@ -2,10 +2,16 @@
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({
-  paymentIntentId: {
+  transactionId: {
     type: String,
+    unique: true,
+    sparse: true // Allows null/undefined values to not violate uniqueness (important if transactionId is not immediately available)
+  },
+  provider: {
+    type: String,
+    enum: ['stripe', 'payhere'],
     required: true,
-    unique: true
+    default: 'payhere'
   },
   appointmentId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -22,7 +28,7 @@ const paymentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'succeeded', 'failed', 'canceled'],
+    enum: ['pending', 'succeeded', 'failed', 'canceled', 'chargedback'],
     default: 'pending'
   },
   customerEmail: {
@@ -38,7 +44,6 @@ const paymentSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-paymentSchema.index({ paymentIntentId: 1 });
 paymentSchema.index({ appointmentId: 1 });
 paymentSchema.index({ status: 1 });
 
