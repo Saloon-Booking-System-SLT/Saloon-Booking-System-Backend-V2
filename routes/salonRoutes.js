@@ -9,6 +9,168 @@ const { generateToken } = require("../utils/jwtUtils");
 const { authenticateToken, requireOwner } = require("../middleware/authMiddleware");
 const notificationService = require("../services/notificationService");
 
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+
+// Configure email transporter (add this at the top of your file)
+// Enhanced email transporter configuration
+let emailTransporter;
+
+try {
+  const emailUser = process.env.EMAIL_USER;
+  const emailPass = process.env.EMAIL_PASSWORD;
+  
+  console.log('🔧 Email Configuration Check:');
+  console.log('   EMAIL_USER exists:', !!emailUser);
+  console.log('   EMAIL_PASSWORD exists:', !!emailPass);
+  
+  if (!emailUser || !emailPass) {
+    throw new Error('Email credentials not found in environment variables');
+  }
+
+  emailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: emailUser,
+      pass: emailPass
+    }
+  });
+
+  console.log('✅ Email transporter configured successfully');
+  
+  // Test the connection
+  emailTransporter.verify((error, success) => {
+    if (error) {
+      console.log('❌ Email transporter verification failed:', error.message);
+    } else {
+      console.log('✅ Email transporter is ready to send messages');
+    }
+  });
+} catch (error) {
+  console.error('❌ Email transporter setup failed:', error.message);
+  console.log('💡 Please check your .env file and ensure EMAIL_USER and EMAIL_PASSWORD are set');
+  emailTransporter = null;
+}
+
+// ✅ Forgot Password - Send reset email
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    const salon = await Salon.findOne({ email });
+    if (!salon) {
+      return res.status(404).json({ message: "No account found with that email address." });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+    
+    // Set token expiry (1 hour)
+    salon.resetPasswordToken = resetPasswordToken;
+    salon.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    
+    await salon.save();
+
+    // Create reset URL
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+
+    // Email content
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: salon.email,
+      subject: "Salon Password Reset Request",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #00AEEF;">Password Reset Request</h2>
+          <p>Hello ${salon.name},</p>
+          <p>You requested to reset your password for your salon account.</p>
+          <p>Click the button below to reset your password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" 
+               style="background-color: #00AEEF; color: white; padding: 12px 24px; 
+                      text-decoration: none; border-radius: 5px; display: inline-block;">
+              Reset Password
+            </a>
+          </div>
+          <p>This link will expire in 1 hour.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #666; font-size: 12px;">
+            If the button doesn't work, copy and paste this link in your browser:<br>
+            ${resetUrl}
+          </p>
+        </div>
+      `
+    };
+
+    // Send email
+    await emailTransporter.sendMail(mailOptions);
+
+    res.json({ 
+      message: "Password reset email sent successfully. Please check your inbox." 
+    });
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    res.status(500).json({ message: "Server error. Please try again later." });
+  }
+});
+
+// ✅ Reset Password - Validate token and update password
+router.post("/reset-password/:token", async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    // Hash the token to compare with stored token
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const salon = await Salon.findOne({
+      resetPasswordToken,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!salon) {
+      return res.status(400).json({ message: "Invalid or expired reset token." });
+    }
+
+    // Hash new password and update
+    salon.password = await bcrypt.hash(password, 10);
+    salon.resetPasswordToken = undefined;
+    salon.resetPasswordExpires = undefined;
+
+    await salon.save();
+
+    // Send confirmation email
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: salon.email,
+      subject: "Password Reset Successful",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1FAF38;">Password Reset Successful</h2>
+          <p>Hello ${salon.name},</p>
+          <p>Your password has been successfully reset.</p>
+          <p>If you didn't make this change, please contact us immediately.</p>
+        </div>
+      `
+    };
+
+    await emailTransporter.sendMail(mailOptions);
+
+    res.json({ message: "Password reset successfully. You can now login with your new password." });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    res.status(500).json({ message: "Server error. Please try again later." });
+  }
+});
+
 // Multer setup
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -438,6 +600,50 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// ✅ Get owner's salon information (protected - owner only)
+router.get("/owner/my-salon", authenticateToken, requireOwner, async (req, res) => {
+  try {
+    console.log("🔍 Fetching salon for owner ID:", req.user.userId);
+    
+    // The salon ID is the same as the owner's user ID
+    const salon = await Salon.findById(req.user.userId).select('-password');
+    
+    if (!salon) {
+      console.log("❌ No salon found for owner:", req.user.userId);
+      return res.status(404).json({ 
+        message: "No salon found for your account. Please contact admin.",
+        success: false 
+      });
+    }
+
+    console.log("✅ Salon found:", salon.name);
+    
+    // Return salon data in the same format as profile endpoint
+    res.json({
+      _id: salon._id,
+      name: salon.name,
+      email: salon.email,
+      phone: salon.phone,
+      location: salon.location,
+      services: salon.services,
+      workingHours: salon.workingHours,
+      image: salon.image,
+      salonType: salon.salonType,
+      coordinates: salon.coordinates,
+      approvalStatus: salon.approvalStatus,
+      rejectionReason: salon.rejectionReason,
+      role: salon.role
+    });
+  } catch (err) {
+    console.error("❌ Error fetching owner salon:", err);
+    res.status(500).json({ 
+      message: "Server error while fetching salon information",
+      error: err.message 
+    });
+  }
+});
+
+
 // ✅ Get all salons (public) - Only show approved salons
 router.get("/", async (req, res) => {
   try {
@@ -446,7 +652,9 @@ router.get("/", async (req, res) => {
       approvalStatus: 'approved',
       ...(location && { location: { $regex: location, $options: "i" } })
     };
-    const salons = await Salon.find(query).select('-password');
+    const salons = await Salon.find(query)
+      .select('-password')
+      .lean();
     res.json(salons);
   } catch (err) {
     console.error("Get salons error:", err);
@@ -462,7 +670,9 @@ router.get("/nearby", async (req, res) => {
   }
 
   try {
-    const allSalons = await Salon.find({ approvalStatus: 'approved' }).select('-password');
+    const allSalons = await Salon.find({ approvalStatus: 'approved' })
+      .select('-password')
+      .lean();
     const districts = {
       colombo: { lat: 6.9271, lng: 79.8612 },
       kandy: { lat: 7.2906, lng: 80.6337 },
@@ -593,7 +803,7 @@ router.get("/owner/profile", authenticateToken, requireOwner, async (req, res) =
 // ✅ Clean up duplicate salons (admin utility)
 router.delete("/cleanup/duplicates", async (req, res) => {
   try {
-    const salons = await Salon.find();
+    const salons = await Salon.find().limit(1000).lean();
     const duplicatesRemoved = [];
     const seenEmails = new Set();
     const seenNames = new Set();
@@ -625,5 +835,7 @@ router.delete("/cleanup/duplicates", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+
 
 module.exports = router;

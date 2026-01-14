@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 const Appointment = require("../models/Appointment");
 const TimeSlot = require("../models/TimeSlot");
@@ -13,7 +14,7 @@ const durationToMinutes = (durationStr) => {
     console.warn("⚠️ Invalid duration string:", durationStr);
     return 30; // Default to 30 minutes
   }
-  
+
   const parts = durationStr.split(" ");
   let minutes = 0;
   for (let i = 0; i < parts.length; i += 2) {
@@ -86,11 +87,11 @@ router.get("/salon/:id", async (req, res) => {
   try {
     const salonId = req.params.id;
     const { date, professionalId } = req.query;
-    
+
     console.log(`🔍 Fetching appointments for salon: ${salonId}`);
     console.log(`📅 Date filter: ${date || 'none'}`);
     console.log(`👨‍💼 Professional filter: ${professionalId || 'none'}`);
-    
+
     const query = { salonId: salonId };
     if (date) query.date = date;
     if (professionalId) query.professionalId = professionalId;
@@ -99,8 +100,9 @@ router.get("/salon/:id", async (req, res) => {
 
     const appointments = await Appointment.find(query)
       .sort({ date: 1, startTime: 1 })
-      .populate("salonId")
-      .populate("professionalId");
+      .populate("salonId", "name location")
+      .populate("professionalId", "name")
+      .lean();
 
     console.log(`✅ Found ${appointments.length} appointments for salon ${salonId}`);
 
@@ -115,12 +117,12 @@ router.get("/salon/:id", async (req, res) => {
 router.get("/test/all", async (req, res) => {
   try {
     console.log("🧪 Testing database connection...");
-    
-    const allAppointments = await Appointment.find();
+
+    const allAppointments = await Appointment.find().limit(100).lean();
     const totalCount = await Appointment.countDocuments();
-    
+
     console.log(`📊 Total appointments in database: ${totalCount}`);
-    
+
     // Group by salonId for debugging
     const bySalon = {};
     allAppointments.forEach(appt => {
@@ -128,9 +130,9 @@ router.get("/test/all", async (req, res) => {
       if (!bySalon[salonId]) bySalon[salonId] = 0;
       bySalon[salonId]++;
     });
-    
+
     console.log('📊 Appointments by salon:', bySalon);
-    
+
     res.json({
       total: totalCount,
       bySalon,
@@ -153,13 +155,13 @@ router.get("/test/all", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     console.log("📥 Received appointment request:", JSON.stringify(req.body, null, 2));
-    
+
     const { phone, email, name, appointments = [], isGroupBooking = false, groupBookingId } = req.body;
-    
+
     if (!phone && !email) {
       return res.status(400).json({ success: false, message: "Phone or email is required" });
     }
-    
+
     if (!appointments.length) {
       return res.status(400).json({ success: false, message: "No appointments provided" });
     }
@@ -170,7 +172,7 @@ router.post("/", async (req, res) => {
     const savedAppointments = await Promise.all(
       appointments.map(async (appt, index) => {
         console.log("📦 Processing appointment:", appt);
-        
+
         // 🔧 FIXED: Provide default duration if missing
         const duration = appt.duration || "30 minutes";
         const durationMins = durationToMinutes(duration);
@@ -182,10 +184,10 @@ router.post("/", async (req, res) => {
         const newAppt = new Appointment({
           salonId: appt.salonId,
           professionalId: appt.professionalId || null,
-          services: [{ 
-            name: appt.serviceName, 
-            price: appt.price, 
-            duration: duration 
+          services: [{
+            name: appt.serviceName,
+            price: appt.price,
+            duration: duration
           }],
           date: appt.date,
           startTime: appt.startTime,
@@ -235,23 +237,23 @@ router.post("/", async (req, res) => {
       console.log('📧 Starting notification process...');
       console.log('📧 Email provided:', email);
       console.log('📧 Phone provided:', phone);
-      
+
       // Get salon information for notifications
       const firstAppointment = savedAppointments[0];
       console.log('📧 First appointment:', firstAppointment.salonId);
-      
+
       const salon = await Salon.findById(firstAppointment.salonId);
       console.log('📧 Salon found:', salon ? salon.name : 'Not found');
-      
+
       if (!salon) {
         console.log('⚠️ Salon not found for notifications');
       } else {
         console.log('📧 Processing notifications for', savedAppointments.length, 'appointments');
-        
+
         // Send customer confirmation for each appointment
         for (const appointment of savedAppointments) {
           console.log('📧 Processing notification for appointment:', appointment._id);
-          
+
           const notificationData = {
             customerEmail: email,
             customerPhone: phone,
@@ -263,7 +265,7 @@ router.post("/", async (req, res) => {
             totalAmount: appointment.services[0]?.price || 0,
             appointmentId: appointment._id.toString().slice(-6).toUpperCase()
           };
-          
+
           console.log('📧 Notification data prepared:', {
             email: notificationData.customerEmail,
             phone: notificationData.customerPhone,
@@ -308,19 +310,19 @@ router.post("/", async (req, res) => {
       // Don't fail the appointment creation if notifications fail
     }
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: "Appointments created successfully",
       data: savedAppointments,
       bookingGroupId: bookingGroupId
     });
-    
+
   } catch (err) {
     console.error("❌ Error saving appointments:", err);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Failed to save appointments",
-      error: err.message 
+      error: err.message
     });
   }
 });
@@ -332,8 +334,8 @@ router.get("/", async (req, res) => {
     const query = email
       ? { "user.email": email }
       : phone
-      ? { "user.phone": phone }
-      : {};
+        ? { "user.phone": phone }
+        : {};
 
     const result = await Appointment.find(query).sort({ createdAt: -1 }).populate("salonId");
     res.json(result);
@@ -505,7 +507,7 @@ router.patch("/:id/reschedule", async (req, res) => {
 
       updatedAppointment = await newAppointment.save();
       console.log("✅ New appointment created:", updatedAppointment._id, "Status:", updatedAppointment.status);
-      
+
       // Delete the old appointment
       await Appointment.findByIdAndDelete(appointmentId);
       console.log("🗑️ Old appointment deleted:", appointmentId);
@@ -517,12 +519,12 @@ router.patch("/:id/reschedule", async (req, res) => {
         endTime: endTime,
         isRescheduled: true
       };
-      
+
       // Only update professionalId if provided
       if (professionalId) {
         updateData.professionalId = professionalId;
       }
-      
+
       // ✅ Status is NOT updated - it remains the same
       updatedAppointment = await Appointment.findByIdAndUpdate(
         appointmentId,
@@ -548,18 +550,18 @@ router.patch("/:id/reschedule", async (req, res) => {
       console.log(`🔒 Booked ${bookResult.modifiedCount} new time slots`);
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       updated: updatedAppointment,
       oldAppointmentDeleted: createNew,
       message: "Appointment rescheduled successfully"
     });
   } catch (err) {
     console.error("❌ Error rescheduling appointment:", err);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: "Failed to reschedule appointment",
-      error: err.message 
+      error: err.message
     });
   }
 });
@@ -568,7 +570,7 @@ router.patch("/:id/reschedule", async (req, res) => {
 router.post("/test-notification", async (req, res) => {
   try {
     console.log('🧪 Testing notification service...');
-    
+
     const testData = {
       customerEmail: 'test@example.com',
       customerPhone: '+1234567890',
@@ -583,19 +585,89 @@ router.post("/test-notification", async (req, res) => {
 
     const result = await notificationService.sendAppointmentConfirmation(testData);
     console.log('🧪 Test notification result:', result);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Test notification sent successfully',
-      result: result 
+      result: result
     });
   } catch (error) {
     console.error('❌ Test notification failed:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Test notification failed',
-      error: error.message 
+      error: error.message
     });
+  }
+});
+
+// 🔍 GET order details by orderId (bookingGroupId or _id)
+router.get("/order/:orderId", async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    console.log(`🔍 Fetching order details for Order ID: ${orderId}`);
+
+    let query = { bookingGroupId: orderId };
+
+    // If orderId is a valid ObjectId, search by _id OR bookingGroupId
+    if (mongoose.Types.ObjectId.isValid(orderId)) {
+      query = {
+        $or: [
+          { bookingGroupId: orderId },
+          { _id: orderId }
+        ]
+      };
+    }
+
+    const appointments = await Appointment.find(query)
+      .populate("salonId", "name location")
+      .populate("professionalId", "name")
+      .lean();
+
+    if (!appointments || appointments.length === 0) {
+      console.log(`❌ No appointments found for Order ID: ${orderId}`);
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // Calculating totals and extracting common info
+    const totalAmount = appointments.reduce((sum, appt) => {
+      const price = appt.services?.[0]?.price || 0;
+      return sum + price;
+    }, 0);
+
+    const firstAppt = appointments[0];
+    const salon = firstAppt.salonId || {};
+
+    // Construct the response
+    const responseData = {
+      success: true,
+      data: {
+        bookingId: orderId, // Return the requested ID
+        salon: {
+          name: salon.name || "Unknown Salon",
+          location: salon.location || "Unknown Location"
+        },
+        customerName: firstAppt.user?.name || "Guest",
+        totalAmount: totalAmount,
+        isGroupBooking: appointments.length > 1,
+        appointments: appointments.map(appt => ({
+          serviceName: appt.services?.[0]?.name || "Unknown Service",
+          professionalName: appt.professionalId?.name || "Any Professional",
+          price: appt.services?.[0]?.price || 0,
+          date: appt.date,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          memberName: appt.memberInfo?.name || appt.user?.name || "Guest"
+        }))
+      }
+    };
+
+    console.log(`✅ Order details retrieved successfully for Order ID: ${orderId}`);
+    res.json(responseData);
+
+  } catch (err) {
+    console.error("❌ Error fetching order details:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch order details", error: err.message });
   }
 });
 

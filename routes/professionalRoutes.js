@@ -84,7 +84,7 @@ router.delete("/:id", async (req, res) => {
 // ----------------- GET PROFESSIONALS -----------------
 router.get("/:salonId", async (req, res) => {
   try {
-    const professionals = await Professional.find({ salonId: req.params.salonId });
+    const professionals = await Professional.find({ salonId: req.params.salonId }).lean();
     res.json(professionals);
   } catch (err) {
     console.error("FETCH ERROR:", err);

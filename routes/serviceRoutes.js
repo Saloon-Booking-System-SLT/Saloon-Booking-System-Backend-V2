@@ -65,7 +65,7 @@ router.delete("/:id", async (req, res) => {
 // Get all services (for family booking)
 router.get('/', async (req, res) => {
   try {
-    const services = await Service.find();
+    const services = await Service.find().lean();
     res.json({
       success: true,
       data: services

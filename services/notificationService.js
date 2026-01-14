@@ -20,7 +20,7 @@ const createEmailTransporter = () => {
       secure: false, // Use STARTTLS
       auth: {
         user: process.env.EMAIL_USER || 'saloonbookingsystem@gmail.com',
-        pass: process.env.EMAIL_PASSWORD || 'buvl bjbt lfom zijs'
+        pass: process.env.EMAIL_PASSWORD || 'yswjazmjqrxoqdsg'
       },
       tls: {
         rejectUnauthorized: false,
