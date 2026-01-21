@@ -84,6 +84,37 @@ router.get('/customers/top', async (req, res) => {
   }
 });
 
+// Alias route for /top-customers
+router.get('/top-customers', async (req, res) => {
+  try {
+    const topCustomers = await Loyalty.find()
+      .sort({ points: -1 })
+      .limit(10)
+      .populate('userId', 'name email');
+    
+    // Get last visit for each customer
+    const customersWithVisits = await Promise.all(
+      topCustomers.map(async (loyalty) => {
+        const lastAppointment = await Appointment.findOne({
+          'user.email': loyalty.userId?.email
+        }).sort({ date: -1 });
+        
+        return {
+          customer: loyalty.userId?.name || 'Unknown',
+          email: loyalty.userId?.email || '',
+          points: loyalty.points,
+          lastVisit: lastAppointment?.date || null
+        };
+      })
+    );
+    
+    res.json(customersWithVisits);
+  } catch (err) {
+    console.error('Error fetching top customers:', err);
+    res.status(500).json({ message: 'Failed to fetch top customers' });
+  }
+});
+
 // POST: Issue or revoke points
 router.post('/points', async (req, res) => {
   try {
