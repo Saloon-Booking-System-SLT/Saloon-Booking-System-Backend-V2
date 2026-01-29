@@ -22,6 +22,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const promotionRoutes = require("./routes/promotionRoutes");
 const loyaltyRoutes = require("./routes/loyaltyRoutes");
 const paymentRoutes = require('./routes/payment'); // Import the new payment package
+const revenueRoutes = require('./routes/revenueRoutes'); 
 
 // Initialize Express app
 const app = express();
@@ -225,6 +226,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/revenue', revenueRoutes);
 
 // PAYMENT ROUTES - with error handling
 console.log('🔄 Loading payment routes...');

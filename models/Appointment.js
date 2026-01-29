@@ -23,6 +23,23 @@ const appointmentSchema = new mongoose.Schema({
   status: { type: String, default: "pending" },
   createdAt: { type: Date, default: Date.now },
 
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'partially_paid', 'refunded', 'failed'],
+    default: 'pending'
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'card', 'online', 'wallet'],
+    default: 'cash'
+  },
+  amountPaid: {
+    type: Number,
+    default: 0
+  },
+  transactionId: String,
+  createdAt: { type: Date, default: Date.now },
+
   // Add group booking fields
   isGroupBooking: { type: Boolean, default: false },
   bookingGroupId: String,
@@ -36,6 +53,8 @@ const appointmentSchema = new mongoose.Schema({
 appointmentSchema.index({ salonId: 1, date: 1 });
 appointmentSchema.index({ professionalId: 1 });
 appointmentSchema.index({ status: 1 });
+appointmentSchema.index({ paymentStatus: 1 });
+appointmentSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Appointment", appointmentSchema);
 
