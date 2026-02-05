@@ -173,22 +173,51 @@ router.post("/", async (req, res) => {
       appointments.map(async (appt, index) => {
         console.log("📦 Processing appointment:", appt);
 
-        // 🔧 FIXED: Provide default duration if missing
-        const duration = appt.duration || "30 minutes";
-        const durationMins = durationToMinutes(duration);
-        const endTime = computeEndTime(appt.startTime, durationMins);
+        // Handle services - can be an array (new format) or individual fields (legacy format)
+        let servicesArray = [];
+        let totalDurationMins = 0;
 
-        console.log(`⏱️ Duration: ${duration} -> ${durationMins} minutes`);
+        if (appt.services && Array.isArray(appt.services) && appt.services.length > 0) {
+          // NEW FORMAT: services is an array of {name, price, duration}
+          console.log("📦 Using new services array format");
+          servicesArray = appt.services.map(s => ({
+            name: s.name || '',
+            price: s.price || 0,
+            duration: s.duration || '30 minutes'
+          }));
+          // Calculate total duration from all services
+          totalDurationMins = servicesArray.reduce((sum, s) => sum + durationToMinutes(s.duration), 0);
+        } else if (appt.serviceName) {
+          // LEGACY FORMAT: individual serviceName, price, duration fields
+          console.log("📦 Using legacy individual fields format");
+          const duration = appt.duration || "30 minutes";
+          servicesArray = [{
+            name: appt.serviceName,
+            price: appt.price || 0,
+            duration: duration
+          }];
+          totalDurationMins = durationToMinutes(duration);
+        } else {
+          // FALLBACK: No service data provided
+          console.warn("⚠️ No service data found in appointment, using defaults");
+          servicesArray = [{
+            name: 'Service',
+            price: 0,
+            duration: '30 minutes'
+          }];
+          totalDurationMins = 30;
+        }
+
+        console.log("📦 Final services array:", JSON.stringify(servicesArray));
+        console.log(`⏱️ Total Duration: ${totalDurationMins} minutes`);
+
+        const endTime = computeEndTime(appt.startTime, totalDurationMins);
         console.log(`⏰ Time: ${appt.startTime} -> ${endTime}`);
 
         const newAppt = new Appointment({
           salonId: appt.salonId,
           professionalId: appt.professionalId || null,
-          services: [{
-            name: appt.serviceName,
-            price: appt.price,
-            duration: duration
-          }],
+          services: servicesArray,
           date: appt.date,
           startTime: appt.startTime,
           endTime,
@@ -254,15 +283,19 @@ router.post("/", async (req, res) => {
         for (const appointment of savedAppointments) {
           console.log('📧 Processing notification for appointment:', appointment._id);
 
+          // Calculate service names and total amount from all services
+          const serviceNames = appointment.services.map(s => s.name).filter(n => n).join(', ') || 'Service';
+          const totalAmount = appointment.services.reduce((sum, s) => sum + (s.price || 0), 0);
+
           const notificationData = {
             customerEmail: email,
             customerPhone: phone,
             customerName: appointment.user.name || name || 'Guest',
             salonName: salon.name,
-            serviceName: appointment.services[0]?.name || 'Service',
+            serviceName: serviceNames,
             date: dayjs(appointment.date).format('MMMM DD, YYYY'),
             time: appointment.startTime,
-            totalAmount: appointment.services[0]?.price || 0,
+            totalAmount: totalAmount,
             appointmentId: appointment._id.toString().slice(-6).toUpperCase()
           };
 
@@ -270,7 +303,8 @@ router.post("/", async (req, res) => {
             email: notificationData.customerEmail,
             phone: notificationData.customerPhone,
             salonName: notificationData.salonName,
-            serviceName: notificationData.serviceName
+            serviceName: notificationData.serviceName,
+            totalAmount: notificationData.totalAmount
           });
 
           // Send confirmation to customer
@@ -286,10 +320,10 @@ router.post("/", async (req, res) => {
               ownerName: salon.name,
               salonName: salon.name,
               customerName: appointment.user.name || name || 'Guest',
-              serviceName: appointment.services[0]?.name || 'Service',
+              serviceName: serviceNames,
               date: dayjs(appointment.date).format('MMMM DD, YYYY'),
               time: appointment.startTime,
-              totalAmount: appointment.services[0]?.price || 0,
+              totalAmount: totalAmount,
               customerPhone: phone
             };
 
@@ -337,7 +371,10 @@ router.get("/", async (req, res) => {
         ? { "user.phone": phone }
         : {};
 
-    const result = await Appointment.find(query).sort({ createdAt: -1 }).populate("salonId");
+    const result = await Appointment.find(query)
+      .sort({ createdAt: -1 })
+      .populate("salonId", "name location")
+      .populate("professionalId", "name");
     res.json(result);
   } catch (err) {
     console.error("❌ Error fetching appointments:", err);
