@@ -42,6 +42,7 @@ const userSchema = new mongoose.Schema({
     trim: true
   },
   gender: String,
+  ageCategory: String, // Age category for booking: 'Gentlemen', 'Lady', 'Teenager/boy', 'Teenager/girl', 'Kid/boy', 'Kid/girl'
   address: [addressSchema],
   favorites: [{
     type: mongoose.Schema.Types.ObjectId,

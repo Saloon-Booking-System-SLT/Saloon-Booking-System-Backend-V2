@@ -473,4 +473,19 @@ router.patch('/salons/:id/reject', authenticateToken, requireAdmin, async (req, 
   }
 });
 
+// Get all payments for financial insights
+router.get('/payments', async (req, res) => {
+  try {
+    const Payment = require('../models/Payment');
+    const payments = await Payment.find()
+      .populate('salonId', 'name')
+      .sort({ createdAt: -1 });
+    
+    res.json(payments);
+  } catch (err) {
+    console.error('Error fetching payments:', err);
+    res.status(500).json({ message: 'Failed to fetch payments' });
+  }
+});
+
 module.exports = router;
