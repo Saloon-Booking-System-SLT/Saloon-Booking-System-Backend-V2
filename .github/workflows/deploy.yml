@@ -27,8 +27,6 @@ jobs:
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
-          # verify SSH connection with verbose logging (masked in actions) and explicit key
-          ssh -i ~/.ssh/id_rsa -p "$SSH_PORT" -vvv "$SSH_USER@$SSH_HOST" "echo SSH_CONNECTION_OK" || (echo "SSH verification failed" && exit 2)
 
       - name: Deploy code and configure environment
         run: |
