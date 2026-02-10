@@ -836,6 +836,168 @@ router.delete("/cleanup/duplicates", async (req, res) => {
   }
 });
 
+// ✅ Revenue Report Endpoint for Salon Owners
+router.get("/revenue/:salonId", authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const { salonId } = req.params;
+    const { period = 'daily' } = req.query; // daily, weekly, monthly, annual
+    
+    // Verify the salon owner is requesting their own data
+    if (req.user.userId !== salonId) {
+      return res.status(403).json({ message: "Unauthorized access" });
+    }
+
+    const Appointment = require('../models/Appointment');
+    const Payment = require('../models/Payment');
+    const mongoose = require('mongoose');
+
+    const now = new Date();
+    let startDate, endDate, groupByFormat;
+
+    // Determine date range and grouping based on period
+    switch (period) {
+      case 'daily':
+        // Today's revenue
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        groupByFormat = { $dateToString: { format: "%Y-%m-%d %H:00", date: { $toDate: "$date" } } };
+        break;
+      
+      case 'weekly':
+        // Last 7 days
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        endDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        groupByFormat = { $dateToString: { format: "%Y-%m-%d", date: { $toDate: "$date" } } };
+        break;
+      
+      case 'monthly':
+        // Current month
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        groupByFormat = { $dateToString: { format: "%Y-%m-%d", date: { $toDate: "$date" } } };
+        break;
+      
+      case 'annual':
+        // Current year
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now.getFullYear() + 1, 0, 1);
+        groupByFormat = { $dateToString: { format: "%Y-%m", date: { $toDate: "$date" } } };
+        break;
+      
+      default:
+        return res.status(400).json({ message: "Invalid period specified" });
+    }
+
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+
+    // Aggregate revenue from appointments
+    const revenueData = await Appointment.aggregate([
+      {
+        $match: {
+          salonId: new mongoose.Types.ObjectId(salonId),
+          date: { $gte: startDateStr, $lt: endDateStr }
+        }
+      },
+      { $unwind: '$services' },
+      {
+        $group: {
+          _id: groupByFormat,
+          revenue: { $sum: '$services.price' },
+          appointments: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Calculate total revenue
+    const totalRevenue = revenueData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+    const totalAppointments = await Appointment.countDocuments({
+      salonId: new mongoose.Types.ObjectId(salonId),
+      date: { $gte: startDateStr, $lt: endDateStr }
+    });
+
+    // Get completed vs pending revenue
+    const completedRevenue = await Appointment.aggregate([
+      {
+        $match: {
+          salonId: new mongoose.Types.ObjectId(salonId),
+          date: { $gte: startDateStr, $lt: endDateStr },
+          status: 'completed'
+        }
+      },
+      { $unwind: '$services' },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$services.price' }
+        }
+      }
+    ]);
+
+    const pendingRevenue = await Appointment.aggregate([
+      {
+        $match: {
+          salonId: new mongoose.Types.ObjectId(salonId),
+          date: { $gte: startDateStr, $lt: endDateStr },
+          status: { $in: ['pending', 'confirmed'] }
+        }
+      },
+      { $unwind: '$services' },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$services.price' }
+        }
+      }
+    ]);
+
+    // Get top services by revenue
+    const topServices = await Appointment.aggregate([
+      {
+        $match: {
+          salonId: new mongoose.Types.ObjectId(salonId),
+          date: { $gte: startDateStr, $lt: endDateStr }
+        }
+      },
+      { $unwind: '$services' },
+      {
+        $group: {
+          _id: '$services.name',
+          revenue: { $sum: '$services.price' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 5 }
+    ]);
+
+    res.json({
+      period,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      totalRevenue,
+      completedRevenue: completedRevenue[0]?.total || 0,
+      pendingRevenue: pendingRevenue[0]?.total || 0,
+      totalAppointments,
+      revenueByPeriod: revenueData.map(item => ({
+        period: item._id,
+        revenue: item.revenue || 0,
+        appointments: item.appointments || 0
+      })),
+      topServices: topServices.map(item => ({
+        serviceName: item._id,
+        revenue: item.revenue || 0,
+        count: item.count || 0
+      }))
+    });
+
+  } catch (err) {
+    console.error("Revenue report error:", err);
+    res.status(500).json({ message: "Failed to generate revenue report" });
+  }
+});
+
 
 
 module.exports = router;
