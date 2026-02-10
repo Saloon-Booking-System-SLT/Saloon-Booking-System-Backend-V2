@@ -109,6 +109,18 @@ router.post('/notify', express.urlencoded({ extended: true }), async (req, res) 
 
         console.log(`✅ Payment updated for Order ${order_id}: ${newStatus}`);
 
+        // 5. Update Appointment Status if payment succeeded
+        if (newStatus === 'succeeded') {
+            const Appointment = require('../../models/Appointment');
+            const appointment = await Appointment.findById(order_id);
+            
+            if (appointment) {
+                appointment.status = 'completed';
+                await appointment.save();
+                console.log(`✅ Appointment ${order_id} marked as completed`);
+            }
+        }
+
         // Respond to PayHere
         res.status(200).send('OK');
 

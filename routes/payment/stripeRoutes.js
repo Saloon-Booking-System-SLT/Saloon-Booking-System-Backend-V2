@@ -134,4 +134,81 @@ router.get('/test-stripe', async (req, res) => {
     }
 });
 
+// Stripe Webhook Handler
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event;
+
+    try {
+        if (!stripe) {
+            return res.status(500).json({ error: 'Stripe not initialized' });
+        }
+
+        // Verify webhook signature
+        if (endpointSecret) {
+            event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+        } else {
+            // For testing without webhook secret
+            event = JSON.parse(req.body);
+        }
+
+        console.log('🔔 Stripe Webhook Event:', event.type);
+
+        // Handle the event
+        switch (event.type) {
+            case 'payment_intent.succeeded':
+                const paymentIntent = event.data.object;
+                console.log('✅ Payment Intent succeeded:', paymentIntent.id);
+
+                // Update Payment and Appointment records
+                const Payment = require('../../models/Payment');
+                const Appointment = require('../../models/Appointment');
+
+                const payment = await Payment.findOne({ 
+                    transactionId: paymentIntent.id 
+                });
+
+                if (payment) {
+                    payment.status = 'succeeded';
+                    await payment.save();
+                    console.log('✅ Payment record updated');
+
+                    // Update appointment status
+                    const appointment = await Appointment.findById(payment.appointmentId);
+                    if (appointment) {
+                        appointment.status = 'completed';
+                        await appointment.save();
+                        console.log('✅ Appointment marked as completed');
+                    }
+                }
+                break;
+
+            case 'payment_intent.payment_failed':
+                const failedPayment = event.data.object;
+                console.log('❌ Payment Intent failed:', failedPayment.id);
+
+                const failedPaymentRecord = await Payment.findOne({ 
+                    transactionId: failedPayment.id 
+                });
+
+                if (failedPaymentRecord) {
+                    failedPaymentRecord.status = 'failed';
+                    await failedPaymentRecord.save();
+                    console.log('✅ Payment record marked as failed');
+                }
+                break;
+
+            default:
+                console.log(`Unhandled event type ${event.type}`);
+        }
+
+        res.json({ received: true });
+    } catch (err) {
+        console.error('❌ Webhook Error:', err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+});
+
 module.exports = router;
