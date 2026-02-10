@@ -6,7 +6,7 @@ const payHereService = require('../../services/payment.service');
 // Initiate PayHere Payment
 router.post('/initiate', async (req, res) => {
     try {
-        const { appointmentId, amount, currency, customer } = req.body;
+        const { appointmentId, amount, currency, customer, items, return_url, cancel_url } = req.body;
 
         // Basic Validation
         if (!appointmentId || !amount || !customer) {
@@ -45,12 +45,17 @@ router.post('/initiate', async (req, res) => {
 
         await newPayment.save();
 
-        // Generate PayHere Form Data
+        // Generate PayHere Form Data with all metadata
         const paymentData = payHereService.getPaymentData(
             appointmentId,
             amount,
             currency || 'LKR',
-            customer
+            customer,
+            {
+                items: items || 'Salon Service',
+                return_url: return_url,
+                cancel_url: cancel_url
+            }
         );
 
         res.json({
