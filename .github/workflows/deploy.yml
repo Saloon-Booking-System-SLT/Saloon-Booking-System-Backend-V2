@@ -1,0 +1,65 @@
+name: Deploy Salon Backend
+
+on:
+  push:
+    branches:
+      - main
+      - cicd/depl-pipeline
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy code and configure environment
+        run: |
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "\
+            set -e; \
+            mkdir -p $DEPLOY_PATH; \
+            cd $DEPLOY_PATH; \
+            rm -rf tmp_deploy; \
+            mkdir tmp_deploy; \
+            exit 0"
+          rsync -az --delete -e "ssh -p $SSH_PORT" ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/tmp_deploy/"
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "\
+            set -e; \
+            cd $DEPLOY_PATH; \
+            cp -r tmp_deploy/* .; \
+            rm -rf tmp_deploy; \
+            printf '%s\n' \"$BACKEND_ENV\" > .env; \
+            chmod 600 .env; \
+            npm ci --omit=dev; \
+            pm2 start server.js --name salon-backend || pm2 restart salon-backend; \
+            pm2 save; \
+            exit 0"
+        shell: bash
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
+
+      - name: Cleanup SSH key
+        run: rm -f ~/.ssh/id_rsa
+        if: always()
+
+    # No secrets are echoed or output in logs above.
