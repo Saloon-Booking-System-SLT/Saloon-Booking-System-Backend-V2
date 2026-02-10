@@ -45,7 +45,7 @@ jobs:
             rm -rf tmp_deploy; \
             printf '%s\n' \"$BACKEND_ENV\" > .env; \
             chmod 600 .env; \
-            npm install --omit=dev; \
+            npm ci --omit=dev; \
             pm2 start server.js --name salon-backend || pm2 restart salon-backend; \
             pm2 save; \
             exit 0"
