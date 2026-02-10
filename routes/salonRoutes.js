@@ -800,6 +800,188 @@ router.get("/owner/profile", authenticateToken, requireOwner, async (req, res) =
   }
 });
 
+// ✅ Get Revenue Statistics for Salon Owner (protected - owner only)
+router.get("/:id/revenue/stats", authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const salonId = req.params.id;
+    
+    // Ensure owner can only view their own salon's revenue
+    if (salonId !== req.user.userId) {
+      return res.status(403).json({ message: 'Can only view your own salon revenue' });
+    }
+
+    const { period } = req.query; // daily, weekly, monthly, annual
+    const currentDate = new Date();
+    
+    // Calculate revenue for completed appointments with payment status
+    const Appointment = require("../models/Appointment");
+    const Payment = require("../models/Payment");
+
+    // Get all completed appointments for this salon
+    const completedAppointments = await Appointment.find({
+      salonId: salonId,
+      status: 'completed'
+    });
+
+    // Get all successful payments for this salon's appointments
+    const appointmentIds = completedAppointments.map(apt => apt._id);
+    const successfulPayments = await Payment.find({
+      appointmentId: { $in: appointmentIds },
+      status: 'succeeded'
+    });
+
+    // Create a map of appointment payments
+    const paymentMap = {};
+    successfulPayments.forEach(payment => {
+      paymentMap[payment.appointmentId.toString()] = payment.amount;
+    });
+
+    // Calculate total revenue from services
+    let totalRevenue = 0;
+    completedAppointments.forEach(appointment => {
+      // Check if there's a payment record
+      const paymentAmount = paymentMap[appointment._id.toString()];
+      if (paymentAmount) {
+        totalRevenue += paymentAmount;
+      } else {
+        // Fallback to service prices if no payment record
+        if (appointment.services && appointment.services.length > 0) {
+          appointment.services.forEach(service => {
+            totalRevenue += service.price || 0;
+          });
+        }
+      }
+    });
+
+    // Calculate period-specific revenue
+    const getPeriodRevenue = (startDate, endDate) => {
+      let periodRevenue = 0;
+      const periodAppointments = completedAppointments.filter(apt => {
+        const aptDate = new Date(apt.date);
+        return aptDate >= startDate && aptDate <= endDate;
+      });
+
+      periodAppointments.forEach(appointment => {
+        const paymentAmount = paymentMap[appointment._id.toString()];
+        if (paymentAmount) {
+          periodRevenue += paymentAmount;
+        } else if (appointment.services && appointment.services.length > 0) {
+          appointment.services.forEach(service => {
+            periodRevenue += service.price || 0;
+          });
+        }
+      });
+
+      return { revenue: periodRevenue, count: periodAppointments.length };
+    };
+
+    // Daily revenue (today)
+    const todayStart = new Date(currentDate.setHours(0, 0, 0, 0));
+    const todayEnd = new Date(currentDate.setHours(23, 59, 59, 999));
+    const daily = getPeriodRevenue(todayStart, todayEnd);
+
+    // Weekly revenue (last 7 days)
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - 6);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date();
+    weekEnd.setHours(23, 59, 59, 999);
+    const weekly = getPeriodRevenue(weekStart, weekEnd);
+
+    // Monthly revenue (current month)
+    const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+    const monthly = getPeriodRevenue(monthStart, monthEnd);
+
+    // Annual revenue (current year)
+    const yearStart = new Date(currentDate.getFullYear(), 0, 1);
+    const yearEnd = new Date(currentDate.getFullYear(), 11, 31, 23, 59, 59, 999);
+    const annual = getPeriodRevenue(yearStart, yearEnd);
+
+    // Get monthly breakdown for the current year (for chart)
+    const monthlyBreakdown = [];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    for (let month = 0; month < 12; month++) {
+      const monthStartDate = new Date(currentDate.getFullYear(), month, 1);
+      const monthEndDate = new Date(currentDate.getFullYear(), month + 1, 0, 23, 59, 59, 999);
+      const monthData = getPeriodRevenue(monthStartDate, monthEndDate);
+      
+      monthlyBreakdown.push({
+        month: monthNames[month],
+        revenue: monthData.revenue,
+        appointments: monthData.count
+      });
+    }
+
+    // Get recent transactions (last 10 completed appointments with payments)
+    const recentTransactions = completedAppointments
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 10)
+      .map(apt => ({
+        appointmentId: apt._id,
+        date: apt.date,
+        customerName: apt.user?.name || 'N/A',
+        customerEmail: apt.user?.email || 'N/A',
+        services: apt.services.map(s => s.name).join(', '),
+        amount: paymentMap[apt._id.toString()] || apt.services.reduce((sum, s) => sum + (s.price || 0), 0),
+        paymentStatus: paymentMap[apt._id.toString()] ? 'Paid' : 'Pending'
+      }));
+
+    // Calculate pending payments (confirmed but not paid)
+    const confirmedAppointments = await Appointment.find({
+      salonId: salonId,
+      status: { $in: ['confirmed', 'pending'] }
+    });
+
+    let pendingRevenue = 0;
+    confirmedAppointments.forEach(appointment => {
+      if (appointment.services && appointment.services.length > 0) {
+        appointment.services.forEach(service => {
+          pendingRevenue += service.price || 0;
+        });
+      }
+    });
+
+    res.json({
+      summary: {
+        totalRevenue,
+        totalCompletedAppointments: completedAppointments.length,
+        totalPaidAppointments: successfulPayments.length,
+        pendingRevenue,
+        pendingAppointments: confirmedAppointments.length
+      },
+      periods: {
+        daily: {
+          revenue: daily.revenue,
+          appointments: daily.count
+        },
+        weekly: {
+          revenue: weekly.revenue,
+          appointments: weekly.count,
+          period: 'Last 7 days'
+        },
+        monthly: {
+          revenue: monthly.revenue,
+          appointments: monthly.count,
+          period: `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+        },
+        annual: {
+          revenue: annual.revenue,
+          appointments: annual.count,
+          period: currentDate.getFullYear().toString()
+        }
+      },
+      monthlyBreakdown,
+      recentTransactions
+    });
+
+  } catch (err) {
+    console.error("Revenue stats error:", err);
+    res.status(500).json({ message: "Server error fetching revenue statistics" });
+  }
+});
+
 // ✅ Clean up duplicate salons (admin utility)
 router.delete("/cleanup/duplicates", async (req, res) => {
   try {
