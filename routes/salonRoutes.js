@@ -19,11 +19,11 @@ let emailTransporter;
 try {
   const emailUser = process.env.EMAIL_USER;
   const emailPass = process.env.EMAIL_PASSWORD;
-  
+
   console.log('🔧 Email Configuration Check:');
   console.log('   EMAIL_USER exists:', !!emailUser);
   console.log('   EMAIL_PASSWORD exists:', !!emailPass);
-  
+
   if (!emailUser || !emailPass) {
     throw new Error('Email credentials not found in environment variables');
   }
@@ -37,7 +37,7 @@ try {
   });
 
   console.log('✅ Email transporter configured successfully');
-  
+
   // Test the connection
   emailTransporter.verify((error, success) => {
     if (error) {
@@ -56,7 +56,7 @@ try {
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
-    
+
     const salon = await Salon.findOne({ email });
     if (!salon) {
       return res.status(404).json({ message: "No account found with that email address." });
@@ -68,11 +68,11 @@ router.post("/forgot-password", async (req, res) => {
       .createHash("sha256")
       .update(resetToken)
       .digest("hex");
-    
+
     // Set token expiry (1 hour)
     salon.resetPasswordToken = resetPasswordToken;
     salon.resetPasswordExpires = Date.now() + 3600000; // 1 hour
-    
+
     await salon.save();
 
     // Create reset URL
@@ -110,8 +110,8 @@ router.post("/forgot-password", async (req, res) => {
     // Send email
     await emailTransporter.sendMail(mailOptions);
 
-    res.json({ 
-      message: "Password reset email sent successfully. Please check your inbox." 
+    res.json({
+      message: "Password reset email sent successfully. Please check your inbox."
     });
   } catch (err) {
     console.error("Forgot password error:", err);
@@ -178,7 +178,7 @@ const upload = multer({ storage });
 // Function to send registration confirmation email
 const sendRegistrationEmail = async (salonData) => {
   const { name, email } = salonData;
-  
+
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -349,7 +349,7 @@ const sendRegistrationEmail = async (salonData) => {
     );
 
     const result = await emailService.sendEmail(mailOptions);
-    
+
     if (result.success) {
       console.log(`✅ Registration email sent successfully to ${email}`);
       return { success: true, messageId: result.messageId };
@@ -385,14 +385,14 @@ router.post("/register", upload.single("image"), async (req, res) => {
     // ALWAYS try to send email first using professional notification service
     let emailSent = false;
     let emailError = null;
-    
+
     try {
       console.log(`📧 Attempting to send registration email to: ${email}`);
       const emailResult = await notificationService.sendSalonRegistrationConfirmation({
         salonName: name,
         ownerEmail: email
       });
-      
+
       if (emailResult.success) {
         console.log(`✅ Registration email sent successfully to ${email}`);
         emailSent = true;
@@ -415,9 +415,9 @@ router.post("/register", upload.single("image"), async (req, res) => {
       console.log(`🔍 Checking for existing email in database...`);
       const existingSalon = await Salon.findOne({ email }).maxTimeMS(15000); // Use maxTimeMS for timeout
       if (existingSalon) {
-        return res.status(400).json({ 
-          message: "Email already exists", 
-          emailSent: emailSent 
+        return res.status(400).json({
+          message: "Email already exists",
+          emailSent: emailSent
         });
       }
 
@@ -469,7 +469,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
     if (dbSuccess) {
       // Both email and database succeeded
       console.log(`🎉 Full registration successful for ${email}`);
-      res.status(201).json({ 
+      res.status(201).json({
         message: "Salon registered successfully",
         emailSent: emailSent,
         token,
@@ -489,7 +489,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
     } else if (emailSent) {
       // Email sent but database failed
       console.log(`⚠️ Partial registration for ${email} - email sent, database failed`);
-      res.status(202).json({ 
+      res.status(202).json({
         message: "Registration email sent successfully! Your registration is being processed.",
         emailSent: true,
         databaseError: true,
@@ -499,7 +499,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
     } else {
       // Both failed
       console.log(`❌ Registration failed completely for ${email}`);
-      res.status(503).json({ 
+      res.status(503).json({
         message: "Registration failed. Please try again later.",
         emailSent: false,
         databaseError: true,
@@ -511,7 +511,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
 
   } catch (err) {
     console.error("Unexpected registration error:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Unexpected server error",
       error: err.message
     });
@@ -531,16 +531,16 @@ router.post("/register-email-test", async (req, res) => {
     try {
       await sendRegistrationEmail({ name, email });
       console.log(`📧 Registration email sent to ${email}`);
-      
-      res.status(200).json({ 
+
+      res.status(200).json({
         message: "Registration email sent successfully",
         emailSent: true,
         recipient: email
       });
-      
+
     } catch (emailError) {
       console.error(`❌ Failed to send registration email to ${email}:`, emailError);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to send registration email",
         emailSent: false,
         error: emailError.message
@@ -556,7 +556,7 @@ router.post("/register-email-test", async (req, res) => {
 // ✅ Login with JWT - UPDATED WITH APPROVAL STATUS CHECK
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  
+
   try {
     const salon = await Salon.findOne({ email });
     if (!salon) {
@@ -604,20 +604,20 @@ router.post("/login", async (req, res) => {
 router.get("/owner/my-salon", authenticateToken, requireOwner, async (req, res) => {
   try {
     console.log("🔍 Fetching salon for owner ID:", req.user.userId);
-    
+
     // The salon ID is the same as the owner's user ID
     const salon = await Salon.findById(req.user.userId).select('-password');
-    
+
     if (!salon) {
       console.log("❌ No salon found for owner:", req.user.userId);
-      return res.status(404).json({ 
+      return res.status(404).json({
         message: "No salon found for your account. Please contact admin.",
-        success: false 
+        success: false
       });
     }
 
     console.log("✅ Salon found:", salon.name);
-    
+
     // Return salon data in the same format as profile endpoint
     res.json({
       _id: salon._id,
@@ -636,9 +636,9 @@ router.get("/owner/my-salon", authenticateToken, requireOwner, async (req, res) 
     });
   } catch (err) {
     console.error("❌ Error fetching owner salon:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Server error while fetching salon information",
-      error: err.message 
+      error: err.message
     });
   }
 });
@@ -648,7 +648,7 @@ router.get("/owner/my-salon", authenticateToken, requireOwner, async (req, res) 
 router.get("/", async (req, res) => {
   try {
     const { location } = req.query;
-    const query = { 
+    const query = {
       approvalStatus: 'approved',
       ...(location && { location: { $regex: location, $options: "i" } })
     };
@@ -717,58 +717,6 @@ router.get("/nearby", async (req, res) => {
   }
 });
 
-// ✅ Get salon by ID (public)
-router.get("/:id", async (req, res) => {
-  try {
-    const salon = await Salon.findById(req.params.id).select('-password');
-    if (!salon) {
-      return res.status(404).json({ message: "Salon not found" });
-    }
-    res.json(salon);
-  } catch (err) {
-    console.error("Get salon by ID error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// ✅ Update salon by ID (protected - owner only)
-router.put("/:id", authenticateToken, requireOwner, upload.single("image"), async (req, res) => {
-  try {
-    // Ensure owner can only update their own salon
-    if (req.params.id !== req.user.userId) {
-      return res.status(403).json({ message: 'Can only update your own salon' });
-    }
-
-    const updatedData = { ...req.body };
-    
-    // Handle password update
-    if (updatedData.password) {
-      updatedData.password = await bcrypt.hash(updatedData.password, 10);
-    }
-
-    // Handle image upload
-    if (req.file) {
-      const uploadResult = await uploadToCloudinary(req.file.buffer, "salons");
-      updatedData.image = uploadResult.secure_url;
-    }
-
-    const salon = await Salon.findByIdAndUpdate(
-      req.params.id, 
-      updatedData, 
-      { new: true }
-    ).select('-password');
-    
-    if (!salon) {
-      return res.status(404).json({ message: "Salon not found" });
-    }
-
-    res.json(salon);
-  } catch (err) {
-    console.error("Update salon error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
 // ✅ Get owner profile (protected)
 router.get("/owner/profile", authenticateToken, requireOwner, async (req, res) => {
   try {
@@ -807,11 +755,11 @@ router.delete("/cleanup/duplicates", async (req, res) => {
     const duplicatesRemoved = [];
     const seenEmails = new Set();
     const seenNames = new Set();
-    
+
     for (let salon of salons) {
       const emailKey = salon.email.toLowerCase();
       const nameLocationKey = `${salon.name.toLowerCase()}-${salon.location.toLowerCase()}`;
-      
+
       if (seenEmails.has(emailKey) || seenNames.has(nameLocationKey)) {
         await Salon.findByIdAndDelete(salon._id);
         duplicatesRemoved.push({
@@ -841,7 +789,7 @@ router.get("/revenue/:salonId", authenticateToken, requireOwner, async (req, res
   try {
     const { salonId } = req.params;
     const { period = 'daily' } = req.query; // daily, weekly, monthly, annual
-    
+
     // Verify the salon owner is requesting their own data
     if (req.user.userId !== salonId) {
       return res.status(403).json({ message: "Unauthorized access" });
@@ -862,28 +810,28 @@ router.get("/revenue/:salonId", authenticateToken, requireOwner, async (req, res
         endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
         groupByFormat = { $dateToString: { format: "%Y-%m-%d %H:00", date: { $toDate: "$date" } } };
         break;
-      
+
       case 'weekly':
         // Last 7 days
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         endDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
         groupByFormat = { $dateToString: { format: "%Y-%m-%d", date: { $toDate: "$date" } } };
         break;
-      
+
       case 'monthly':
         // Current month
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         groupByFormat = { $dateToString: { format: "%Y-%m-%d", date: { $toDate: "$date" } } };
         break;
-      
+
       case 'annual':
         // Current year
         startDate = new Date(now.getFullYear(), 0, 1);
         endDate = new Date(now.getFullYear() + 1, 0, 1);
         groupByFormat = { $dateToString: { format: "%Y-%m", date: { $toDate: "$date" } } };
         break;
-      
+
       default:
         return res.status(400).json({ message: "Invalid period specified" });
     }
@@ -998,6 +946,56 @@ router.get("/revenue/:salonId", authenticateToken, requireOwner, async (req, res
   }
 });
 
+// ✅ Get salon by ID (public)
+router.get("/:id", async (req, res) => {
+  try {
+    const salon = await Salon.findById(req.params.id).select('-password');
+    if (!salon) {
+      return res.status(404).json({ message: "Salon not found" });
+    }
+    res.json(salon);
+  } catch (err) {
+    console.error("Get salon by ID error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
+// ✅ Update salon by ID (protected - owner only)
+router.put("/:id", authenticateToken, requireOwner, upload.single("image"), async (req, res) => {
+  try {
+    // Ensure owner can only update their own salon
+    if (req.params.id !== req.user.userId) {
+      return res.status(403).json({ message: 'Can only update your own salon' });
+    }
+
+    const updatedData = { ...req.body };
+
+    // Handle password update
+    if (updatedData.password) {
+      updatedData.password = await bcrypt.hash(updatedData.password, 10);
+    }
+
+    // Handle image upload
+    if (req.file) {
+      const uploadResult = await uploadToCloudinary(req.file.buffer, "salons");
+      updatedData.image = uploadResult.secure_url;
+    }
+
+    const salon = await Salon.findByIdAndUpdate(
+      req.params.id,
+      updatedData,
+      { new: true }
+    ).select('-password');
+
+    if (!salon) {
+      return res.status(404).json({ message: "Salon not found" });
+    }
+
+    res.json(salon);
+  } catch (err) {
+    console.error("Update salon error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 module.exports = router;
