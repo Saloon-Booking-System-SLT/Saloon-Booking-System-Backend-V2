@@ -114,7 +114,7 @@ router.post('/register', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
+ console.error('Registration error:', error);
     
     // Handle duplicate key errors
     if (error.code === 11000) {
@@ -212,7 +212,7 @@ router.post('/email-login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Email login error:', error);
+ console.error('Email login error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error during login',
@@ -290,7 +290,7 @@ router.post('/google-login', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Google login error:', err);
+ console.error('Google login error:', err);
     res.status(500).json({ 
       success: false,
       message: 'Server error', 
@@ -354,7 +354,7 @@ router.post('/phone-login', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Phone login error:', err);
+ console.error('Phone login error:', err);
     res.status(500).json({ 
       success: false,
       message: 'Server error', 
@@ -395,7 +395,7 @@ router.get('/profile', authenticateToken, requireCustomer, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Get profile error:', err);
+ console.error('Get profile error:', err);
     res.status(500).json({ 
       success: false,
       message: 'Server error',
@@ -450,7 +450,7 @@ router.put('/:id', authenticateToken, requireCustomer, async (req, res) => {
       message: 'Profile updated successfully'
     });
   } catch (err) {
-    console.error("Update error:", err);
+ console.error("Update error:", err);
     res.status(500).json({ 
       success: false,
       message: "Error updating user",
@@ -514,7 +514,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Change password error:', error);
+ console.error('Change password error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error updating password',
@@ -581,7 +581,7 @@ router.post('/forgot-password', async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Forgot password error:', error);
+ console.error('Forgot password error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error',
@@ -656,7 +656,7 @@ router.post('/reset-password', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Reset password error:', error);
+ console.error('Reset password error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error',
@@ -708,7 +708,7 @@ router.post('/verify-email', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Verify email error:', error);
+ console.error('Verify email error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error',
@@ -771,7 +771,7 @@ router.post('/send-feedback-request', authenticateToken, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Send feedback request error:', error);
+ console.error('Send feedback request error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error',
@@ -796,7 +796,7 @@ router.get('/favorites', authenticateToken, requireCustomer, async (req, res) =>
       favorites: user.favorites 
     });
   } catch (error) {
-    console.error('Get favorites error:', error);
+ console.error('Get favorites error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error',
@@ -847,7 +847,7 @@ router.post('/favorites/:salonId', authenticateToken, requireCustomer, async (re
       favorites: user.favorites 
     });
   } catch (error) {
-    console.error('Add favorite error:', error);
+ console.error('Add favorite error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error',
@@ -888,7 +888,7 @@ router.delete('/favorites/:salonId', authenticateToken, requireCustomer, async (
       favorites: user.favorites 
     });
   } catch (error) {
-    console.error('Remove favorite error:', error);
+ console.error('Remove favorite error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error',
@@ -919,7 +919,7 @@ router.post('/deactivate', authenticateToken, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Deactivate account error:', error);
+ console.error('Deactivate account error:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error',

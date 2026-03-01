@@ -5,23 +5,23 @@ let stripe;
 try {
     if (process.env.STRIPE_SECRET_KEY) {
         stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-        console.log('🔑 Stripe initialized');
+ console.log(' Stripe initialized');
     } else {
-        console.warn('⚠️ STRIPE_SECRET_KEY not found in environment variables');
+ console.warn('️ STRIPE_SECRET_KEY not found in environment variables');
     }
 } catch (err) {
-    console.error('❌ Failed to initialize Stripe:', err.message);
+ console.error(' Failed to initialize Stripe:', err.message);
 }
 
 // Create payment intent
 router.post('/create-payment-intent', async (req, res) => {
-    console.log('✅ /api/payments/create-payment-intent HIT!');
-    console.log('Request body:', req.body);
+ console.log(' /api/payments/create-payment-intent HIT!');
+ console.log('Request body:', req.body);
 
     try {
         // Check if Stripe is initialized
         if (!stripe) {
-            console.error('❌ Stripe not initialized');
+ console.error(' Stripe not initialized');
             return res.status(500).json({
                 success: false,
                 error: 'Payment service not available'
@@ -30,10 +30,10 @@ router.post('/create-payment-intent', async (req, res) => {
 
         const { amount, currency = 'lkr', customer_email } = req.body;
 
-        console.log('🔍 Validating request...');
-        console.log('💵 Amount:', amount, 'cents');
-        console.log('💰 Currency:', currency);
-        console.log('📧 Email:', customer_email);
+ console.log(' Validating request...');
+ console.log(' Amount:', amount, 'cents');
+ console.log(' Currency:', currency);
+ console.log(' Email:', customer_email);
 
         // Validate required fields
         if (!amount || amount <= 0) {
@@ -50,14 +50,14 @@ router.post('/create-payment-intent', async (req, res) => {
             });
         }
 
-        console.log('🚀 Creating Stripe payment intent...');
+ console.log(' Creating Stripe payment intent...');
 
         // For testing, let's use USD instead of LKR (better Stripe test mode support)
         // Convert LKR to USD (rough conversion: 1 USD = 200 LKR)
         const usdAmount = Math.max(50, Math.round(amount / 200)); // Minimum $0.50 for Stripe
 
-        console.log('💵 Original amount (LKR cents):', amount);
-        console.log('💲 USD amount (cents):', usdAmount);
+ console.log(' Original amount (LKR cents):', amount);
+ console.log(' USD amount (cents):', usdAmount);
 
         // Create payment intent with USD
         const paymentIntent = await stripe.paymentIntents.create({
@@ -72,9 +72,9 @@ router.post('/create-payment-intent', async (req, res) => {
             }
         });
 
-        console.log('💰 Payment intent created successfully!');
-        console.log('🆔 Payment Intent ID:', paymentIntent.id);
-        console.log('💵 Amount:', paymentIntent.amount, paymentIntent.currency);
+ console.log(' Payment intent created successfully!');
+ console.log(' Payment Intent ID:', paymentIntent.id);
+ console.log(' Amount:', paymentIntent.amount, paymentIntent.currency);
 
         res.json({
             success: true,
@@ -86,9 +86,9 @@ router.post('/create-payment-intent', async (req, res) => {
         });
 
     } catch (err) {
-        console.error('❌ Payment intent error:', err);
-        console.error('Error type:', err.type);
-        console.error('Error code:', err.code);
+ console.error(' Payment intent error:', err);
+ console.error('Error type:', err.type);
+ console.error('Error code:', err.code);
 
         let errorMessage = 'Payment processing failed';
 
@@ -154,13 +154,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             event = JSON.parse(req.body);
         }
 
-        console.log('🔔 Stripe Webhook Event:', event.type);
+ console.log(' Stripe Webhook Event:', event.type);
 
         // Handle the event
         switch (event.type) {
             case 'payment_intent.succeeded':
                 const paymentIntent = event.data.object;
-                console.log('✅ Payment Intent succeeded:', paymentIntent.id);
+ console.log(' Payment Intent succeeded:', paymentIntent.id);
 
                 // Update Payment and Appointment records
                 const Payment = require('../../models/Payment');
@@ -173,21 +173,21 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 if (payment) {
                     payment.status = 'succeeded';
                     await payment.save();
-                    console.log('✅ Payment record updated');
+ console.log(' Payment record updated');
 
                     // Update appointment status
                     const appointment = await Appointment.findById(payment.appointmentId);
                     if (appointment) {
                         appointment.status = 'completed';
                         await appointment.save();
-                        console.log('✅ Appointment marked as completed');
+ console.log(' Appointment marked as completed');
                     }
                 }
                 break;
 
             case 'payment_intent.payment_failed':
                 const failedPayment = event.data.object;
-                console.log('❌ Payment Intent failed:', failedPayment.id);
+ console.log(' Payment Intent failed:', failedPayment.id);
 
                 const failedPaymentRecord = await Payment.findOne({ 
                     transactionId: failedPayment.id 
@@ -196,17 +196,17 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 if (failedPaymentRecord) {
                     failedPaymentRecord.status = 'failed';
                     await failedPaymentRecord.save();
-                    console.log('✅ Payment record marked as failed');
+ console.log(' Payment record marked as failed');
                 }
                 break;
 
             default:
-                console.log(`Unhandled event type ${event.type}`);
+ console.log(`Unhandled event type ${event.type}`);
         }
 
         res.json({ received: true });
     } catch (err) {
-        console.error('❌ Webhook Error:', err.message);
+ console.error(' Webhook Error:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 });

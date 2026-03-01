@@ -10,7 +10,7 @@ router.get('/config', async (req, res) => {
     const config = await LoyaltyConfig.find().populate('salonId', 'name');
     res.json(config);
   } catch (err) {
-    console.error('Error fetching loyalty config:', err);
+ console.error('Error fetching loyalty config:', err);
     res.status(500).json({ message: 'Failed to fetch loyalty configuration' });
   }
 });
@@ -29,7 +29,7 @@ router.post('/config', async (req, res) => {
     
     res.json(config);
   } catch (err) {
-    console.error('Error updating loyalty config:', err);
+ console.error('Error updating loyalty config:', err);
     res.status(500).json({ message: 'Failed to update loyalty configuration' });
   }
 });
@@ -48,7 +48,7 @@ router.get('/stats', async (req, res) => {
       totalCustomers
     });
   } catch (err) {
-    console.error('Error fetching loyalty stats:', err);
+ console.error('Error fetching loyalty stats:', err);
     res.status(500).json({ message: 'Failed to fetch loyalty statistics' });
   }
 });
@@ -79,7 +79,7 @@ router.get('/customers/top', async (req, res) => {
     
     res.json(customersWithVisits);
   } catch (err) {
-    console.error('Error fetching top customers:', err);
+ console.error('Error fetching top customers:', err);
     res.status(500).json({ message: 'Failed to fetch top customers' });
   }
 });
@@ -110,7 +110,7 @@ router.get('/top-customers', async (req, res) => {
     
     res.json(customersWithVisits);
   } catch (err) {
-    console.error('Error fetching top customers:', err);
+ console.error('Error fetching top customers:', err);
     res.status(500).json({ message: 'Failed to fetch top customers' });
   }
 });
@@ -149,7 +149,7 @@ router.post('/points', async (req, res) => {
       loyalty
     });
   } catch (err) {
-    console.error('Error managing points:', err);
+ console.error('Error managing points:', err);
     res.status(500).json({ message: 'Failed to manage points' });
   }
 });
@@ -160,7 +160,7 @@ router.get('/salon/:salonId', async (req, res) => {
     const config = await LoyaltyConfig.findOne({ salonId: req.params.salonId });
     res.json(config || { pointsThreshold: 100, conversionRate: 10, isActive: true });
   } catch (err) {
-    console.error('Error fetching salon loyalty config:', err);
+ console.error('Error fetching salon loyalty config:', err);
     res.status(500).json({ message: 'Failed to fetch salon loyalty configuration' });
   }
 });
@@ -178,7 +178,7 @@ router.put('/salon/:salonId', async (req, res) => {
     
     res.json(config);
   } catch (err) {
-    console.error('Error updating salon loyalty config:', err);
+ console.error('Error updating salon loyalty config:', err);
     res.status(500).json({ message: 'Failed to update salon loyalty configuration' });
   }
 });

@@ -19,7 +19,7 @@ router.get("/", async (req, res) => {
 
     return res.json(slots);
   } catch (err) {
-    console.error("❌ Error fetching time slots:", err);
+ console.error(" Error fetching time slots:", err);
     return res.status(500).json({ error: "Failed to fetch time slots" });
   }
 });
@@ -47,7 +47,7 @@ router.post("/", async (req, res) => {
     await newSlot.save();
     return res.status(201).json(newSlot);
   } catch (err) {
-    console.error("❌ Error creating time slot:", err);
+ console.error(" Error creating time slot:", err);
     return res.status(500).json({ error: "Failed to create time slot" });
   }
 });
@@ -63,7 +63,7 @@ router.patch("/:id/book", async (req, res) => {
     );
     res.json({ success: true, updated });
   } catch (err) {
-    console.error("❌ Error updating time slot status:", err);
+ console.error(" Error updating time slot status:", err);
     res.status(500).json({ error: "Failed to update time slot" });
   }
 });

@@ -16,7 +16,7 @@ router.post('/', async (req, res) => {
       specialInstructions
     } = req.body;
 
-    console.log('Creating family/group booking with data:', {
+ console.log('Creating family/group booking with data:', {
       customerInfo,
       salonId,
       bookingDate,
@@ -131,7 +131,7 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Family booking creation error:', error);
+ console.error('Family booking creation error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while creating family booking',
@@ -175,7 +175,7 @@ router.get('/customer', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get family bookings error:', error);
+ console.error('Get family bookings error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching family bookings',
@@ -189,7 +189,7 @@ router.get('/available-slots', async (req, res) => {
   try {
     const { salonId, date, duration = 60 } = req.query;
 
-    console.log('Fetching available slots for:', { salonId, date, duration });
+ console.log('Fetching available slots for:', { salonId, date, duration });
 
     if (!salonId || !date) {
       return res.status(400).json({
@@ -231,7 +231,7 @@ router.get('/available-slots', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get available slots error:', error);
+ console.error('Get available slots error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching available slots',
@@ -279,7 +279,7 @@ router.put('/:bookingId/cancel', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Cancel booking error:', error);
+ console.error('Cancel booking error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while cancelling booking',
@@ -317,7 +317,7 @@ router.get('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get all family bookings error:', error);
+ console.error('Get all family bookings error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching bookings',
@@ -349,7 +349,7 @@ router.get('/:bookingId', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get family booking error:', error);
+ console.error('Get family booking error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching booking',

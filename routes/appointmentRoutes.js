@@ -11,7 +11,7 @@ const notificationService = require("../services/notificationService");
 // 🔧 FIXED: Handle undefined/empty duration strings
 const durationToMinutes = (durationStr) => {
   if (!durationStr || typeof durationStr !== 'string') {
-    console.warn("⚠️ Invalid duration string:", durationStr);
+ console.warn("️ Invalid duration string:", durationStr);
     return 30; // Default to 30 minutes
   }
 
@@ -73,9 +73,9 @@ const generateWeeklyTimeSlots = async () => {
         }
       }
     }
-    console.log("✅ Weekly time slots generated successfully");
+ console.log(" Weekly time slots generated successfully");
   } catch (error) {
-    console.error("❌ Error generating weekly time slots:", error);
+ console.error(" Error generating weekly time slots:", error);
   }
 };
 
@@ -88,15 +88,15 @@ router.get("/salon/:id", async (req, res) => {
     const salonId = req.params.id;
     const { date, professionalId } = req.query;
 
-    console.log(`🔍 Fetching appointments for salon: ${salonId}`);
-    console.log(`📅 Date filter: ${date || 'none'}`);
-    console.log(`👨‍💼 Professional filter: ${professionalId || 'none'}`);
+ console.log(` Fetching appointments for salon: ${salonId}`);
+ console.log(` Date filter: ${date || 'none'}`);
+ console.log(`‍ Professional filter: ${professionalId || 'none'}`);
 
     const query = { salonId: salonId };
     if (date) query.date = date;
     if (professionalId) query.professionalId = professionalId;
 
-    console.log('🔎 Query object:', JSON.stringify(query));
+ console.log(' Query object:', JSON.stringify(query));
 
     const appointments = await Appointment.find(query)
       .sort({ date: 1, startTime: 1 })
@@ -104,11 +104,11 @@ router.get("/salon/:id", async (req, res) => {
       .populate("professionalId", "name")
       .lean();
 
-    console.log(`✅ Found ${appointments.length} appointments for salon ${salonId}`);
+ console.log(` Found ${appointments.length} appointments for salon ${salonId}`);
 
     res.json(appointments);
   } catch (err) {
-    console.error("❌ Error fetching appointments:", err);
+ console.error(" Error fetching appointments:", err);
     res.status(500).json({ message: "Failed to fetch appointments", error: err.message });
   }
 });
@@ -116,12 +116,12 @@ router.get("/salon/:id", async (req, res) => {
 // 🧪 Test route to check all appointments in database
 router.get("/test/all", async (req, res) => {
   try {
-    console.log("🧪 Testing database connection...");
+ console.log(" Testing database connection...");
 
     const allAppointments = await Appointment.find().limit(100).lean();
     const totalCount = await Appointment.countDocuments();
 
-    console.log(`📊 Total appointments in database: ${totalCount}`);
+ console.log(` Total appointments in database: ${totalCount}`);
 
     // Group by salonId for debugging
     const bySalon = {};
@@ -131,7 +131,7 @@ router.get("/test/all", async (req, res) => {
       bySalon[salonId]++;
     });
 
-    console.log('📊 Appointments by salon:', bySalon);
+ console.log(' Appointments by salon:', bySalon);
 
     res.json({
       total: totalCount,
@@ -145,7 +145,7 @@ router.get("/test/all", async (req, res) => {
       }))
     });
   } catch (err) {
-    console.error("❌ Test route error:", err);
+ console.error(" Test route error:", err);
     res.status(500).json({ message: "Test failed", error: err.message });
   }
 });
@@ -154,7 +154,7 @@ router.get("/test/all", async (req, res) => {
 // In your appointment POST route - Update to handle group bookings
 router.post("/", async (req, res) => {
   try {
-    console.log("📥 Received appointment request:", JSON.stringify(req.body, null, 2));
+ console.log(" Received appointment request:", JSON.stringify(req.body, null, 2));
 
     const { phone, email, name, appointments = [], isGroupBooking = false, groupBookingId } = req.body;
 
@@ -171,7 +171,7 @@ router.post("/", async (req, res) => {
 
     const savedAppointments = await Promise.all(
       appointments.map(async (appt, index) => {
-        console.log("📦 Processing appointment:", appt);
+ console.log(" Processing appointment:", appt);
 
         // Handle services - can be an array (new format) or individual fields (legacy format)
         let servicesArray = [];
@@ -179,7 +179,7 @@ router.post("/", async (req, res) => {
 
         if (appt.services && Array.isArray(appt.services) && appt.services.length > 0) {
           // NEW FORMAT: services is an array of {name, price, duration}
-          console.log("📦 Using new services array format");
+ console.log(" Using new services array format");
           servicesArray = appt.services.map(s => ({
             name: s.name || '',
             price: s.price || 0,
@@ -189,7 +189,7 @@ router.post("/", async (req, res) => {
           totalDurationMins = servicesArray.reduce((sum, s) => sum + durationToMinutes(s.duration), 0);
         } else if (appt.serviceName) {
           // LEGACY FORMAT: individual serviceName, price, duration fields
-          console.log("📦 Using legacy individual fields format");
+ console.log(" Using legacy individual fields format");
           const duration = appt.duration || "30 minutes";
           servicesArray = [{
             name: appt.serviceName,
@@ -199,7 +199,7 @@ router.post("/", async (req, res) => {
           totalDurationMins = durationToMinutes(duration);
         } else {
           // FALLBACK: No service data provided
-          console.warn("⚠️ No service data found in appointment, using defaults");
+ console.warn("️ No service data found in appointment, using defaults");
           servicesArray = [{
             name: 'Service',
             price: 0,
@@ -208,11 +208,11 @@ router.post("/", async (req, res) => {
           totalDurationMins = 30;
         }
 
-        console.log("📦 Final services array:", JSON.stringify(servicesArray));
-        console.log(`⏱️ Total Duration: ${totalDurationMins} minutes`);
+ console.log(" Final services array:", JSON.stringify(servicesArray));
+ console.log(`⏱️ Total Duration: ${totalDurationMins} minutes`);
 
         const endTime = computeEndTime(appt.startTime, totalDurationMins);
-        console.log(`⏰ Time: ${appt.startTime} -> ${endTime}`);
+ console.log(`⏰ Time: ${appt.startTime} -> ${endTime}`);
 
         const newAppt = new Appointment({
           salonId: appt.salonId,
@@ -238,7 +238,7 @@ router.post("/", async (req, res) => {
         });
 
         const savedAppt = await newAppt.save();
-        console.log("✅ Appointment saved:", savedAppt._id);
+ console.log(" Appointment saved:", savedAppt._id);
 
         // Mark time slots as booked
         if (appt.professionalId) {
@@ -252,36 +252,36 @@ router.post("/", async (req, res) => {
             },
             { isBooked: true }
           );
-          console.log(`🔒 Marked ${updateResult.modifiedCount} time slots as booked`);
+ console.log(` Marked ${updateResult.modifiedCount} time slots as booked`);
         }
 
         return savedAppt;
       })
     );
 
-    console.log(`✅ ${savedAppointments.length} appointments created successfully`);
+ console.log(` ${savedAppointments.length} appointments created successfully`);
 
     // Send notifications for all created appointments
     try {
-      console.log('📧 Starting notification process...');
-      console.log('📧 Email provided:', email);
-      console.log('📧 Phone provided:', phone);
+ console.log(' Starting notification process...');
+ console.log(' Email provided:', email);
+ console.log(' Phone provided:', phone);
 
       // Get salon information for notifications
       const firstAppointment = savedAppointments[0];
-      console.log('📧 First appointment:', firstAppointment.salonId);
+ console.log(' First appointment:', firstAppointment.salonId);
 
       const salon = await Salon.findById(firstAppointment.salonId);
-      console.log('📧 Salon found:', salon ? salon.name : 'Not found');
+ console.log(' Salon found:', salon ? salon.name : 'Not found');
 
       if (!salon) {
-        console.log('⚠️ Salon not found for notifications');
+ console.log('️ Salon not found for notifications');
       } else {
-        console.log('📧 Processing notifications for', savedAppointments.length, 'appointments');
+ console.log(' Processing notifications for', savedAppointments.length, 'appointments');
 
         // Send customer confirmation for each appointment
         for (const appointment of savedAppointments) {
-          console.log('📧 Processing notification for appointment:', appointment._id);
+ console.log(' Processing notification for appointment:', appointment._id);
 
           // Calculate service names and total amount from all services
           const serviceNames = appointment.services.map(s => s.name).filter(n => n).join(', ') || 'Service';
@@ -299,7 +299,7 @@ router.post("/", async (req, res) => {
             appointmentId: appointment._id.toString().slice(-6).toUpperCase()
           };
 
-          console.log('📧 Notification data prepared:', {
+ console.log(' Notification data prepared:', {
             email: notificationData.customerEmail,
             phone: notificationData.customerPhone,
             salonName: notificationData.salonName,
@@ -308,13 +308,13 @@ router.post("/", async (req, res) => {
           });
 
           // Send confirmation to customer
-          console.log('📧 Calling sendAppointmentConfirmation...');
+ console.log(' Calling sendAppointmentConfirmation...');
           const confirmationResult = await notificationService.sendAppointmentConfirmation(notificationData);
-          console.log('📧 Customer notification result:', confirmationResult);
+ console.log(' Customer notification result:', confirmationResult);
 
           // Send notification to salon owner
           if (salon.email) {
-            console.log('📧 Sending owner notification to:', salon.email);
+ console.log(' Sending owner notification to:', salon.email);
             const ownerNotificationData = {
               ownerEmail: salon.email,
               ownerName: salon.name,
@@ -331,16 +331,16 @@ router.post("/", async (req, res) => {
               { ownerEmail: salon.email, ownerName: salon.name, salonName: salon.name },
               ownerNotificationData
             );
-            console.log('📧 Owner notification result:', ownerNotificationResult);
+ console.log(' Owner notification result:', ownerNotificationResult);
           } else {
-            console.log('📧 No salon owner email found');
+ console.log(' No salon owner email found');
           }
         }
-        console.log('📧 All notifications processed');
+ console.log(' All notifications processed');
       }
     } catch (notificationError) {
-      console.error('❌ Notification error:', notificationError);
-      console.error('❌ Notification error stack:', notificationError.stack);
+ console.error(' Notification error:', notificationError);
+ console.error(' Notification error stack:', notificationError.stack);
       // Don't fail the appointment creation if notifications fail
     }
 
@@ -352,7 +352,7 @@ router.post("/", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ Error saving appointments:", err);
+ console.error(" Error saving appointments:", err);
     res.status(500).json({
       success: false,
       message: "Failed to save appointments",
@@ -377,7 +377,7 @@ router.get("/", async (req, res) => {
       .populate("professionalId", "name");
     res.json(result);
   } catch (err) {
-    console.error("❌ Error fetching appointments:", err);
+ console.error(" Error fetching appointments:", err);
     res.status(500).json({ message: "Error fetching appointments" });
   }
 });
@@ -401,7 +401,7 @@ router.delete("/:id", async (req, res) => {
 
     res.json({ message: "Deleted successfully and slot updated" });
   } catch (err) {
-    console.error("❌ Failed to delete appointment:", err);
+ console.error(" Failed to delete appointment:", err);
     res.status(500).json({ message: "Failed to delete appointment" });
   }
 });
@@ -433,11 +433,11 @@ router.patch("/:id/status", async (req, res) => {
     // Send confirmation email when appointment is confirmed
     if (status === "confirmed" && updated.user?.email) {
       try {
-        console.log('📧 Sending confirmation notification for appointment:', updated._id);
+ console.log(' Sending confirmation notification for appointment:', updated._id);
         const confirmationResult = await notificationService.sendAppointmentConfirmation(notificationData);
-        console.log('📧 Confirmation notification result:', confirmationResult);
+ console.log(' Confirmation notification result:', confirmationResult);
       } catch (notificationError) {
-        console.error('❌ Confirmation notification error:', notificationError);
+ console.error(' Confirmation notification error:', notificationError);
         // Don't fail the status update if notification fails
       }
     }
@@ -445,11 +445,11 @@ router.patch("/:id/status", async (req, res) => {
     // Send completion email when appointment is completed
     if (status === "completed" && updated.user?.email) {
       try {
-        console.log('📧 Sending completion notification for appointment:', updated._id);
+ console.log(' Sending completion notification for appointment:', updated._id);
         const completionResult = await notificationService.sendAppointmentCompletion(notificationData);
-        console.log('📧 Completion notification result:', completionResult);
+ console.log(' Completion notification result:', completionResult);
       } catch (notificationError) {
-        console.error('❌ Completion notification error:', notificationError);
+ console.error(' Completion notification error:', notificationError);
         // Don't fail the status update if notification fails
       }
     }
@@ -457,15 +457,15 @@ router.patch("/:id/status", async (req, res) => {
     // Send cancellation email when appointment is cancelled
     if ((status === "cancelled" || status === "cancel") && updated.user?.email) {
       try {
-        console.log('📧 Sending cancellation notification for appointment:', updated._id);
+ console.log(' Sending cancellation notification for appointment:', updated._id);
         const cancellationData = {
           ...notificationData,
           cancellationReason: req.body.cancellationReason || null
         };
         const cancellationResult = await notificationService.sendAppointmentCancellation(cancellationData);
-        console.log('📧 Cancellation notification result:', cancellationResult);
+ console.log(' Cancellation notification result:', cancellationResult);
       } catch (notificationError) {
-        console.error('❌ Cancellation notification error:', notificationError);
+ console.error(' Cancellation notification error:', notificationError);
         // Don't fail the status update if notification fails
       }
     }
@@ -484,7 +484,7 @@ router.patch("/:id/status", async (req, res) => {
 
     res.json({ success: true, updated });
   } catch (err) {
-    console.error("❌ Error updating status:", err);
+ console.error(" Error updating status:", err);
     res.status(500).json({ message: "Failed to update status" });
   }
 });
@@ -496,7 +496,7 @@ router.patch("/:id/reschedule", async (req, res) => {
     const appointmentId = req.params.id;
     const { date, startTime, endTime, professionalId, createNew = false } = req.body;
 
-    console.log("🔄 Reschedule request received:", {
+ console.log(" Reschedule request received:", {
       appointmentId, date, startTime, endTime, professionalId, createNew
     });
 
@@ -509,7 +509,7 @@ router.patch("/:id/reschedule", async (req, res) => {
       return res.status(404).json({ success: false, message: "Appointment not found" });
     }
 
-    console.log("📋 Old appointment found:", oldAppointment._id, "Status:", oldAppointment.status);
+ console.log(" Old appointment found:", oldAppointment._id, "Status:", oldAppointment.status);
 
     // Free old time slots
     if (oldAppointment.professionalId && oldAppointment.date && oldAppointment.startTime && oldAppointment.endTime) {
@@ -522,7 +522,7 @@ router.patch("/:id/reschedule", async (req, res) => {
         },
         { isBooked: false }
       );
-      console.log(`🔓 Freed ${freeResult.modifiedCount} old time slots`);
+ console.log(` Freed ${freeResult.modifiedCount} old time slots`);
     }
 
     let updatedAppointment;
@@ -543,11 +543,11 @@ router.patch("/:id/reschedule", async (req, res) => {
       });
 
       updatedAppointment = await newAppointment.save();
-      console.log("✅ New appointment created:", updatedAppointment._id, "Status:", updatedAppointment.status);
+ console.log(" New appointment created:", updatedAppointment._id, "Status:", updatedAppointment.status);
 
       // Delete the old appointment
       await Appointment.findByIdAndDelete(appointmentId);
-      console.log("🗑️ Old appointment deleted:", appointmentId);
+ console.log("️ Old appointment deleted:", appointmentId);
     } else {
       // Update existing appointment - preserve status
       const updateData = {
@@ -568,7 +568,7 @@ router.patch("/:id/reschedule", async (req, res) => {
         updateData,
         { new: true }
       );
-      console.log("✅ Existing appointment updated:", updatedAppointment._id, "Status:", updatedAppointment.status);
+ console.log(" Existing appointment updated:", updatedAppointment._id, "Status:", updatedAppointment.status);
     }
 
     // Mark new slots as booked
@@ -584,7 +584,7 @@ router.patch("/:id/reschedule", async (req, res) => {
         },
         { isBooked: true }
       );
-      console.log(`🔒 Booked ${bookResult.modifiedCount} new time slots`);
+ console.log(` Booked ${bookResult.modifiedCount} new time slots`);
     }
 
     res.json({
@@ -594,7 +594,7 @@ router.patch("/:id/reschedule", async (req, res) => {
       message: "Appointment rescheduled successfully"
     });
   } catch (err) {
-    console.error("❌ Error rescheduling appointment:", err);
+ console.error(" Error rescheduling appointment:", err);
     res.status(500).json({
       success: false,
       message: "Failed to reschedule appointment",
@@ -606,7 +606,7 @@ router.patch("/:id/reschedule", async (req, res) => {
 // 📧 Test notification endpoint
 router.post("/test-notification", async (req, res) => {
   try {
-    console.log('🧪 Testing notification service...');
+ console.log(' Testing notification service...');
 
     const testData = {
       customerEmail: 'test@example.com',
@@ -621,7 +621,7 @@ router.post("/test-notification", async (req, res) => {
     };
 
     const result = await notificationService.sendAppointmentConfirmation(testData);
-    console.log('🧪 Test notification result:', result);
+ console.log(' Test notification result:', result);
 
     res.json({
       success: true,
@@ -629,7 +629,7 @@ router.post("/test-notification", async (req, res) => {
       result: result
     });
   } catch (error) {
-    console.error('❌ Test notification failed:', error);
+ console.error(' Test notification failed:', error);
     res.status(500).json({
       success: false,
       message: 'Test notification failed',
@@ -642,7 +642,7 @@ router.post("/test-notification", async (req, res) => {
 router.get("/order/:orderId", async (req, res) => {
   try {
     const { orderId } = req.params;
-    console.log(`🔍 Fetching order details for Order ID: ${orderId}`);
+ console.log(` Fetching order details for Order ID: ${orderId}`);
 
     let query = { bookingGroupId: orderId };
 
@@ -662,7 +662,7 @@ router.get("/order/:orderId", async (req, res) => {
       .lean();
 
     if (!appointments || appointments.length === 0) {
-      console.log(`❌ No appointments found for Order ID: ${orderId}`);
+ console.log(` No appointments found for Order ID: ${orderId}`);
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
@@ -699,11 +699,11 @@ router.get("/order/:orderId", async (req, res) => {
       }
     };
 
-    console.log(`✅ Order details retrieved successfully for Order ID: ${orderId}`);
+ console.log(` Order details retrieved successfully for Order ID: ${orderId}`);
     res.json(responseData);
 
   } catch (err) {
-    console.error("❌ Error fetching order details:", err);
+ console.error(" Error fetching order details:", err);
     res.status(500).json({ success: false, message: "Failed to fetch order details", error: err.message });
   }
 });

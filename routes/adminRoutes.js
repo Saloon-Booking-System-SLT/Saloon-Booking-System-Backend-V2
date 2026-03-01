@@ -13,11 +13,11 @@ const notificationService = require('../services/notificationService');
 // Admin Login with JWT tokens
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  
+
   // Hardcoded admin credentials
   const ADMIN_USERNAME = 'admin';
   const ADMIN_PASSWORD = 'admin123';
-  
+
   try {
     // Validate credentials
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
@@ -28,8 +28,8 @@ router.post('/login', async (req, res) => {
         role: 'admin'
       });
 
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         message: 'Login successful',
         token,
         admin: {
@@ -39,14 +39,58 @@ router.post('/login', async (req, res) => {
         }
       });
     } else {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid username or password' 
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid username or password'
       });
     }
   } catch (err) {
     console.error('Admin login error:', err);
     res.status(500).json({ message: 'Server error during login' });
+  }
+});
+
+// Admin Google Login
+router.post('/google-login', async (req, res) => {
+  const { name, email, photoURL } = req.body;
+
+  // List of authorized admin emails
+  const AUTHORIZED_ADMINS = [
+    'ojitharajapaksha@gmail.com', // Google Auth
+    'admin@saloonbooking.lk'      // Email/Password Auth
+  ];
+
+  try {
+    if (AUTHORIZED_ADMINS.includes(email)) {
+      // Generate JWT token for admin
+      const token = generateToken({
+        userId: 'admin', // keep 'admin' to preserve backward compatibility
+        username: name || 'Admin',
+        email: email,
+        role: 'admin',
+      });
+
+      return res.json({
+        success: true,
+        message: 'Google login successful',
+        token,
+        admin: {
+          id: 'admin',
+          username: name || 'Admin User',
+          email: email,
+          role: 'admin',
+          photoURL: photoURL
+        }
+      });
+    } else {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized email. You do not have admin access.',
+      });
+    }
+  } catch (err) {
+    console.error('Admin google login error:', err);
+    res.status(500).json({ message: 'Server error during Google login' });
   }
 });
 
@@ -56,26 +100,26 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
     const totalSalons = await Salon.countDocuments();
     const totalCustomers = await User.countDocuments();
     const totalAppointments = await Appointment.countDocuments();
-    
+
     // Get professionals count across all salons
     const totalEmployees = await Professional.countDocuments();
-    
+
     // Get pending approvals (salons with pending status)
     const pendingApprovals = await Salon.countDocuments({ approvalStatus: 'pending' });
-    
+
     // Get latest bookings
     const latestBookings = await Appointment.find()
       .sort({ createdAt: -1 })
       .limit(10)
       .populate('salonId', 'name')
       .populate('professionalId', 'name');
-    
+
     // Get latest cancellations
     const latestCancellations = await Appointment.find({ status: 'cancelled' })
       .sort({ updatedAt: -1 })
       .limit(10)
       .populate('salonId', 'name');
-    
+
     // Calculate revenue - FIXED VERSION
     let totalRevenue = 0;
     try {
@@ -88,7 +132,7 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
     } catch (err) {
       console.error('Error calculating revenue:', err);
     }
-    
+
     // Pending payments - FIXED VERSION
     let pendingPayments = 0;
     try {
@@ -101,7 +145,7 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
     } catch (err) {
       console.error('Error calculating pending payments:', err);
     }
-    
+
     // Monthly data for charts - FIXED VERSION
     let monthlyData = [];
     try {
@@ -109,7 +153,7 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
         {
           $addFields: {
             // Convert string date to Date object
-            dateObj: { 
+            dateObj: {
               $cond: {
                 if: { $eq: [{ $type: "$date" }, "string"] },
                 then: { $toDate: "$date" },
@@ -135,7 +179,7 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
           }
         }
       ]);
-      
+
       // Transform to month names
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       monthlyData = monthlyData.map(item => ({
@@ -147,7 +191,7 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
       console.error('Error calculating monthly data:', err);
       monthlyData = [];
     }
-    
+
     res.json({
       totalSalons,
       totalCustomers,
@@ -159,11 +203,11 @@ router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res)
       pendingPayments,
       monthlyData,
       alerts: [
-        { 
-          id: 1, 
-          type: 'Warning', 
-          details: `${pendingApprovals} pending salon approvals`, 
-          action: 'Review' 
+        {
+          id: 1,
+          type: 'Warning',
+          details: `${pendingApprovals} pending salon approvals`,
+          action: 'Review'
         }
       ]
     });
@@ -178,12 +222,12 @@ router.get('/appointments', authenticateToken, requireAdmin, async (req, res) =>
   try {
     const { date } = req.query;
     const query = date ? { date } : {};
-    
+
     const appointments = await Appointment.find(query)
       .sort({ date: -1, startTime: -1 })
       .populate('salonId', 'name')
       .populate('professionalId', 'name');
-    
+
     res.json(appointments);
   } catch (err) {
     console.error('Error fetching appointments:', err);
@@ -200,11 +244,11 @@ router.patch('/appointments/:id/status', authenticateToken, requireAdmin, async 
       { status },
       { new: true }
     );
-    
+
     if (!updated) {
       return res.status(404).json({ message: 'Appointment not found' });
     }
-    
+
     res.json(updated);
   } catch (err) {
     console.error('Error updating appointment status:', err);
@@ -216,21 +260,21 @@ router.patch('/appointments/:id/status', authenticateToken, requireAdmin, async 
 router.get('/customers', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const users = await User.find().lean();
-    
+
     // Get booking stats for each user
     const usersWithStats = await Promise.all(
       users.map(async (user) => {
         const bookings = await Appointment.countDocuments({ 'user.email': user.email });
         const appointments = await Appointment.find({ 'user.email': user.email });
-        
+
         const totalSpent = appointments.reduce((sum, apt) => {
           return sum + (apt.services?.[0]?.price || 0);
         }, 0);
-        
-        const lastBooking = appointments.length > 0 
+
+        const lastBooking = appointments.length > 0
           ? appointments.sort((a, b) => new Date(b.date) - new Date(a.date))[0].date
           : null;
-        
+
         return {
           ...user,
           bookings,
@@ -241,7 +285,7 @@ router.get('/customers', authenticateToken, requireAdmin, async (req, res) => {
         };
       })
     );
-    
+
     res.json(usersWithStats);
   } catch (err) {
     console.error('Error fetching customers:', err);
@@ -257,7 +301,7 @@ router.get('/feedbacks', authenticateToken, requireAdmin, async (req, res) => {
       .populate('salonId', 'name location')
       .populate('professionalId', 'name')
       .lean(); // Convert to plain JavaScript objects
-    
+
     // Transform data to match frontend expectations
     const transformedFeedbacks = feedbacks.map(feedback => ({
       _id: feedback._id,
@@ -272,7 +316,7 @@ router.get('/feedbacks', authenticateToken, requireAdmin, async (req, res) => {
       createdAt: feedback.createdAt,
       appointmentId: feedback.appointmentId
     }));
-    
+
     res.json(transformedFeedbacks);
   } catch (err) {
     console.error('Error fetching feedbacks:', err);
@@ -289,11 +333,11 @@ router.patch('/feedbacks/:id/status', authenticateToken, requireAdmin, async (re
       { status },
       { new: true }
     );
-    
+
     if (!updated) {
       return res.status(404).json({ message: 'Feedback not found' });
     }
-    
+
     res.json(updated);
   } catch (err) {
     console.error('Error updating feedback:', err);
@@ -325,12 +369,12 @@ router.post('/notifications/test', authenticateToken, requireAdmin, async (req, 
     const results = {};
 
     if (type === 'reminders' || type === 'both') {
-      console.log('📧 Admin triggered daily reminders...');
+      console.log(' Admin triggered daily reminders...');
       results.reminders = await cronJobManager.triggerDailyReminders();
     }
 
     if (type === 'feedback' || type === 'both') {
-      console.log('📝 Admin triggered feedback requests...');
+      console.log(' Admin triggered feedback requests...');
       results.feedback = await cronJobManager.triggerFeedbackRequests();
     }
 
@@ -341,9 +385,9 @@ router.post('/notifications/test', authenticateToken, requireAdmin, async (req, 
 
   } catch (error) {
     console.error('Error triggering notifications:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Failed to trigger notifications',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -353,12 +397,12 @@ router.get('/notifications/status', authenticateToken, requireAdmin, (req, res) 
   try {
     const cronJobManager = require('../utils/cronJobs');
     const status = cronJobManager.getJobStatus();
-    
+
     res.json({
       cronJobs: status,
       timestamp: new Date().toISOString()
     });
-    
+
   } catch (error) {
     console.error('Error getting notification status:', error);
     res.status(500).json({ message: 'Failed to get notification status' });
@@ -370,11 +414,11 @@ router.get('/salons', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { status } = req.query; // Can filter by status: pending, approved, rejected
     const query = status ? { approvalStatus: status } : {};
-    
+
     const salons = await Salon.find(query)
       .select('-password')
       .sort({ createdAt: -1 });
-    
+
     res.json(salons);
   } catch (err) {
     console.error('Error fetching salons:', err);
@@ -387,38 +431,38 @@ router.patch('/salons/:id/approve', authenticateToken, requireAdmin, async (req,
   try {
     const salon = await Salon.findByIdAndUpdate(
       req.params.id,
-      { 
+      {
         approvalStatus: 'approved',
         rejectionReason: null
       },
       { new: true }
     ).select('-password');
-    
+
     if (!salon) {
       return res.status(404).json({ message: 'Salon not found' });
     }
-    
+
     // Send approval notification email
     try {
-      console.log(`📧 Sending approval notification for salon: ${salon.name}`);
+      console.log(` Sending approval notification for salon: ${salon.name}`);
       const emailResult = await notificationService.sendSalonApprovalNotification({
         salonName: salon.name,
         ownerEmail: salon.email
       });
-      
+
       if (emailResult.success) {
-        console.log(`✅ Approval email sent successfully to ${salon.email}`);
+        console.log(` Approval email sent successfully to ${salon.email}`);
       } else {
-        console.error(`❌ Failed to send approval email to ${salon.email}:`, emailResult.error);
+        console.error(` Failed to send approval email to ${salon.email}:`, emailResult.error);
       }
     } catch (emailError) {
-      console.error(`❌ Error sending approval email:`, emailError.message);
+      console.error(` Error sending approval email:`, emailError.message);
       // Don't fail the approval if email fails
     }
-    
-    res.json({ 
+
+    res.json({
       message: 'Salon approved successfully',
-      salon 
+      salon
     });
   } catch (err) {
     console.error('Error approving salon:', err);
@@ -430,42 +474,42 @@ router.patch('/salons/:id/approve', authenticateToken, requireAdmin, async (req,
 router.patch('/salons/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { reason } = req.body;
-    
+
     const salon = await Salon.findByIdAndUpdate(
       req.params.id,
-      { 
+      {
         approvalStatus: 'rejected',
         rejectionReason: reason || 'No reason provided'
       },
       { new: true }
     ).select('-password');
-    
+
     if (!salon) {
       return res.status(404).json({ message: 'Salon not found' });
     }
-    
+
     // Send rejection notification email
     try {
-      console.log(`📧 Sending rejection notification for salon: ${salon.name}`);
+      console.log(` Sending rejection notification for salon: ${salon.name}`);
       const emailResult = await notificationService.sendSalonRejectionNotification({
         salonName: salon.name,
         ownerEmail: salon.email,
         rejectionReason: salon.rejectionReason
       });
-      
+
       if (emailResult.success) {
-        console.log(`✅ Rejection email sent successfully to ${salon.email}`);
+        console.log(` Rejection email sent successfully to ${salon.email}`);
       } else {
-        console.error(`❌ Failed to send rejection email to ${salon.email}:`, emailResult.error);
+        console.error(` Failed to send rejection email to ${salon.email}:`, emailResult.error);
       }
     } catch (emailError) {
-      console.error(`❌ Error sending rejection email:`, emailError.message);
+      console.error(` Error sending rejection email:`, emailError.message);
       // Don't fail the rejection if email fails
     }
-    
-    res.json({ 
+
+    res.json({
       message: 'Salon rejected successfully',
-      salon 
+      salon
     });
   } catch (err) {
     console.error('Error rejecting salon:', err);
@@ -480,7 +524,7 @@ router.get('/payments', async (req, res) => {
     const payments = await Payment.find()
       .populate('salonId', 'name')
       .sort({ createdAt: -1 });
-    
+
     res.json(payments);
   } catch (err) {
     console.error('Error fetching payments:', err);
