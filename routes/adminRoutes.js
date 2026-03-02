@@ -517,6 +517,101 @@ router.patch('/salons/:id/reject', authenticateToken, requireAdmin, async (req, 
   }
 });
 
+// PATCH: Terminate a salon (Protected - Admin only, Soft Delete)
+router.patch('/salons/:id/terminate', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    const salon = await Salon.findByIdAndUpdate(
+      req.params.id,
+      {
+        approvalStatus: 'terminated',
+        rejectionReason: reason || 'Terminated by admin'
+      },
+      { new: true }
+    ).select('-password');
+
+    if (!salon) {
+      return res.status(404).json({ message: 'Salon not found' });
+    }
+
+    // Optional: Send termination notification email
+    try {
+      console.log(` Sending termination notification for salon: ${salon.name}`);
+      const emailResult = await notificationService.sendSalonRejectionNotification({ // Re-using rejection template
+        salonName: salon.name,
+        ownerEmail: salon.email,
+        rejectionReason: salon.rejectionReason
+      });
+    } catch (emailError) {
+      console.error(` Error sending termination email:`, emailError.message);
+    }
+
+    res.json({
+      message: 'Salon terminated successfully',
+      salon
+    });
+  } catch (err) {
+    console.error('Error terminating salon:', err);
+    res.status(500).json({ message: 'Failed to terminate salon' });
+  }
+});
+
+// DELETE: Delete a salon permanently (Protected - Admin only)
+router.delete('/salons/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const salonId = req.params.id;
+
+    // Check if salon exists
+    const salon = await Salon.findById(salonId);
+    if (!salon) {
+      return res.status(404).json({ message: 'Salon not found' });
+    }
+
+    // Delete related data (Appointments, Services, Professionals, Feedback, etc.)
+    await Appointment.deleteMany({ salonId });
+    await Professional.deleteMany({ salonId });
+    await Feedback.deleteMany({ salonId });
+    // Add any other related schemas that need cleanup here
+
+    // Finally delete the salon
+    await Salon.findByIdAndDelete(salonId);
+
+    // Optional: Send an email notifying them of account deletion
+    try {
+      if (salon.email) {
+        const emailContent = {
+          from: process.env.EMAIL_USER,
+          to: salon.email,
+          subject: 'Salon Booking System - Account Removed',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #d9534f;">Account Removed</h2>
+              <p>Hello ${salon.name},</p>
+              <p>Your salon account has been permanently removed from our platform by an administrator.</p>
+              <p>All associated data including appointments, staff, and services have been deleted.</p>
+              <p>If you believe this was a mistake, please contact support.</p>
+            </div>
+          `
+        };
+        const nodemailer = require("nodemailer");
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASSWORD }
+        });
+        await transporter.sendMail(emailContent);
+      }
+    } catch (err) {
+      console.error('Failed to send deletion email', err.message);
+    }
+
+    res.json({ message: 'Salon and all associated data deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting salon:', err);
+    res.status(500).json({ message: 'Failed to delete salon' });
+  }
+});
+
 // Get all payments for financial insights
 router.get('/payments', async (req, res) => {
   try {
