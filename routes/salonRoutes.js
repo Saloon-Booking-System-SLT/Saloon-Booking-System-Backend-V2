@@ -20,9 +20,9 @@ try {
   const emailUser = process.env.EMAIL_USER;
   const emailPass = process.env.EMAIL_PASSWORD;
 
- console.log(' Email Configuration Check:');
- console.log(' EMAIL_USER exists:', !!emailUser);
- console.log(' EMAIL_PASSWORD exists:', !!emailPass);
+  console.log(' Email Configuration Check:');
+  console.log(' EMAIL_USER exists:', !!emailUser);
+  console.log(' EMAIL_PASSWORD exists:', !!emailPass);
 
   if (!emailUser || !emailPass) {
     throw new Error('Email credentials not found in environment variables');
@@ -36,19 +36,19 @@ try {
     }
   });
 
- console.log(' Email transporter configured successfully');
+  console.log(' Email transporter configured successfully');
 
   // Test the connection
   emailTransporter.verify((error, success) => {
     if (error) {
- console.log(' Email transporter verification failed:', error.message);
+      console.log(' Email transporter verification failed:', error.message);
     } else {
- console.log(' Email transporter is ready to send messages');
+      console.log(' Email transporter is ready to send messages');
     }
   });
 } catch (error) {
- console.error(' Email transporter setup failed:', error.message);
- console.log(' Please check your .env file and ensure EMAIL_USER and EMAIL_PASSWORD are set');
+  console.error(' Email transporter setup failed:', error.message);
+  console.log(' Please check your .env file and ensure EMAIL_USER and EMAIL_PASSWORD are set');
   emailTransporter = null;
 }
 
@@ -114,7 +114,7 @@ router.post("/forgot-password", async (req, res) => {
       message: "Password reset email sent successfully. Please check your inbox."
     });
   } catch (err) {
- console.error("Forgot password error:", err);
+    console.error("Forgot password error:", err);
     res.status(500).json({ message: "Server error. Please try again later." });
   }
 });
@@ -166,7 +166,7 @@ router.post("/reset-password/:token", async (req, res) => {
 
     res.json({ message: "Password reset successfully. You can now login with your new password." });
   } catch (err) {
- console.error("Reset password error:", err);
+    console.error("Reset password error:", err);
     res.status(500).json({ message: "Server error. Please try again later." });
   }
 });
@@ -351,14 +351,14 @@ const sendRegistrationEmail = async (salonData) => {
     const result = await emailService.sendEmail(mailOptions);
 
     if (result.success) {
- console.log(` Registration email sent successfully to ${email}`);
+      console.log(` Registration email sent successfully to ${email}`);
       return { success: true, messageId: result.messageId };
     } else {
- console.error(` Failed to send registration email to ${email}:`, result.error);
+      console.error(` Failed to send registration email to ${email}:`, result.error);
       return { success: false, error: result.error };
     }
   } catch (error) {
- console.error(` Error sending registration email to ${email}:`, error);
+    console.error(` Error sending registration email to ${email}:`, error);
     return { success: false, error: error.message };
   }
 };
@@ -380,28 +380,28 @@ router.post("/register", upload.single("image"), async (req, res) => {
   try {
     const { name, email, password, phone, workingHours, location, services, salonType, coordinates } = req.body;
 
- console.log(` Registration attempt for: ${email}`);
+    console.log(` Registration attempt for: ${email}`);
 
     // ALWAYS try to send email first using professional notification service
     let emailSent = false;
     let emailError = null;
 
     try {
- console.log(` Attempting to send registration email to: ${email}`);
+      console.log(` Attempting to send registration email to: ${email}`);
       const emailResult = await notificationService.sendSalonRegistrationConfirmation({
         salonName: name,
         ownerEmail: email
       });
 
       if (emailResult.success) {
- console.log(` Registration email sent successfully to ${email}`);
+        console.log(` Registration email sent successfully to ${email}`);
         emailSent = true;
       } else {
- console.error(` Registration email failed: ${emailResult.error}`);
+        console.error(` Registration email failed: ${emailResult.error}`);
         emailError = emailResult.error;
       }
     } catch (error) {
- console.error(` Failed to send registration email to ${email}:`, error.message);
+      console.error(` Failed to send registration email to ${email}:`, error.message);
       emailError = error.message;
     }
 
@@ -412,7 +412,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
     let token = null;
 
     try {
- console.log(` Checking for existing email in database...`);
+      console.log(` Checking for existing email in database...`);
       const existingSalon = await Salon.findOne({ email }).maxTimeMS(15000); // Use maxTimeMS for timeout
       if (existingSalon) {
         return res.status(400).json({
@@ -421,17 +421,17 @@ router.post("/register", upload.single("image"), async (req, res) => {
         });
       }
 
- console.log(` Hashing password...`);
+      console.log(` Hashing password...`);
       const hashedPassword = await bcrypt.hash(password, 10);
 
       let imageUrl = null;
       if (req.file) {
- console.log(` Uploading image to Cloudinary...`);
+        console.log(` Uploading image to Cloudinary...`);
         const uploadResult = await uploadToCloudinary(req.file.buffer, "salons");
         imageUrl = uploadResult.secure_url;
       }
 
- console.log(` Creating new salon record...`);
+      console.log(` Creating new salon record...`);
       newSalon = new Salon({
         name,
         email,
@@ -446,9 +446,9 @@ router.post("/register", upload.single("image"), async (req, res) => {
         role: 'owner'
       });
 
- console.log(` Saving salon to database...`);
+      console.log(` Saving salon to database...`);
       await newSalon.save(); // Remove timeout from save - use global connection timeout
- console.log(` Salon saved to database successfully`);
+      console.log(` Salon saved to database successfully`);
 
       // Generate JWT token
       token = generateToken({
@@ -461,14 +461,14 @@ router.post("/register", upload.single("image"), async (req, res) => {
       dbSuccess = true;
 
     } catch (error) {
- console.error(` Database operation failed:`, error.message);
+      console.error(` Database operation failed:`, error.message);
       dbError = error.message;
     }
 
     // Return appropriate response based on what succeeded
     if (dbSuccess) {
       // Both email and database succeeded
- console.log(` Full registration successful for ${email}`);
+      console.log(` Full registration successful for ${email}`);
       res.status(201).json({
         message: "Salon registered successfully",
         emailSent: emailSent,
@@ -488,7 +488,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
       });
     } else if (emailSent) {
       // Email sent but database failed
- console.log(`️ Partial registration for ${email} - email sent, database failed`);
+      console.log(`️ Partial registration for ${email} - email sent, database failed`);
       res.status(202).json({
         message: "Registration email sent successfully! Your registration is being processed.",
         emailSent: true,
@@ -498,7 +498,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
       });
     } else {
       // Both failed
- console.log(` Registration failed completely for ${email}`);
+      console.log(` Registration failed completely for ${email}`);
       res.status(503).json({
         message: "Registration failed. Please try again later.",
         emailSent: false,
@@ -510,7 +510,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
     }
 
   } catch (err) {
- console.error("Unexpected registration error:", err);
+    console.error("Unexpected registration error:", err);
     res.status(500).json({
       message: "Unexpected server error",
       error: err.message
@@ -530,7 +530,7 @@ router.post("/register-email-test", async (req, res) => {
     // Send registration confirmation email
     try {
       await sendRegistrationEmail({ name, email });
- console.log(` Registration email sent to ${email}`);
+      console.log(` Registration email sent to ${email}`);
 
       res.status(200).json({
         message: "Registration email sent successfully",
@@ -539,7 +539,7 @@ router.post("/register-email-test", async (req, res) => {
       });
 
     } catch (emailError) {
- console.error(` Failed to send registration email to ${email}:`, emailError);
+      console.error(` Failed to send registration email to ${email}:`, emailError);
       res.status(500).json({
         message: "Failed to send registration email",
         emailSent: false,
@@ -548,7 +548,7 @@ router.post("/register-email-test", async (req, res) => {
     }
 
   } catch (err) {
- console.error("Email registration error:", err);
+    console.error("Email registration error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -595,7 +595,7 @@ router.post("/login", async (req, res) => {
       }
     });
   } catch (err) {
- console.error("Login error:", err);
+    console.error("Login error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -603,20 +603,20 @@ router.post("/login", async (req, res) => {
 // ✅ Get owner's salon information (protected - owner only)
 router.get("/owner/my-salon", authenticateToken, requireOwner, async (req, res) => {
   try {
- console.log(" Fetching salon for owner ID:", req.user.userId);
+    console.log(" Fetching salon for owner ID:", req.user.userId);
 
     // The salon ID is the same as the owner's user ID
     const salon = await Salon.findById(req.user.userId).select('-password');
 
     if (!salon) {
- console.log(" No salon found for owner:", req.user.userId);
+      console.log(" No salon found for owner:", req.user.userId);
       return res.status(404).json({
         message: "No salon found for your account. Please contact admin.",
         success: false
       });
     }
 
- console.log(" Salon found:", salon.name);
+    console.log(" Salon found:", salon.name);
 
     // Return salon data in the same format as profile endpoint
     res.json({
@@ -635,7 +635,7 @@ router.get("/owner/my-salon", authenticateToken, requireOwner, async (req, res) 
       role: salon.role
     });
   } catch (err) {
- console.error(" Error fetching owner salon:", err);
+    console.error(" Error fetching owner salon:", err);
     res.status(500).json({
       message: "Server error while fetching salon information",
       error: err.message
@@ -657,7 +657,7 @@ router.get("/", async (req, res) => {
       .lean();
     res.json(salons);
   } catch (err) {
- console.error("Get salons error:", err);
+    console.error("Get salons error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -712,7 +712,7 @@ router.get("/nearby", async (req, res) => {
 
     res.json(nearbySalons);
   } catch (err) {
- console.error("Nearby salons error:", err);
+    console.error("Nearby salons error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -743,7 +743,7 @@ router.get("/owner/profile", authenticateToken, requireOwner, async (req, res) =
       }
     });
   } catch (err) {
- console.error("Get owner profile error:", err);
+    console.error("Get owner profile error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -779,7 +779,7 @@ router.delete("/cleanup/duplicates", async (req, res) => {
       duplicatesRemoved
     });
   } catch (err) {
- console.error("Cleanup error:", err);
+    console.error("Cleanup error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -941,7 +941,7 @@ router.get("/revenue/:salonId", authenticateToken, requireOwner, async (req, res
     });
 
   } catch (err) {
- console.error("Revenue report error:", err);
+    console.error("Revenue report error:", err);
     res.status(500).json({ message: "Failed to generate revenue report" });
   }
 });
@@ -955,7 +955,7 @@ router.get("/:id", async (req, res) => {
     }
     res.json(salon);
   } catch (err) {
- console.error("Get salon by ID error:", err);
+    console.error("Get salon by ID error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -993,8 +993,33 @@ router.put("/:id", authenticateToken, requireOwner, upload.single("image"), asyn
 
     res.json(salon);
   } catch (err) {
- console.error("Update salon error:", err);
+    console.error("Update salon error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+// ✅ Update salon profile image only (quick upload)
+router.patch("/:id/image", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No image file provided" });
+    }
+
+    const uploadResult = await uploadToCloudinary(req.file.buffer, "salons");
+
+    const salon = await Salon.findByIdAndUpdate(
+      req.params.id,
+      { image: uploadResult.secure_url },
+      { new: true }
+    ).select('-password');
+
+    if (!salon) {
+      return res.status(404).json({ message: "Salon not found" });
+    }
+
+    res.json({ success: true, image: uploadResult.secure_url, salon });
+  } catch (err) {
+    console.error("Salon image upload error:", err);
+    res.status(500).json({ message: "Image upload failed", error: err.message });
   }
 });
 
