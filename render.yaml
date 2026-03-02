@@ -10,4 +10,24 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 5000
+        value: 10000
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: PAYHERE_MERCHANT_ID
+        sync: false
+      - key: PAYHERE_MERCHANT_SECRET
+        sync: false
