@@ -8,16 +8,16 @@
 require('dotenv').config();
 
 async function testSendGridSetup() {
-  console.log('🧪 SENDGRID EMAIL TEST');
-  console.log('======================');
+ console.log(' SENDGRID EMAIL TEST');
+ console.log('======================');
   
   // Check environment variables
-  console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? '✅ Set' : '❌ Missing');
-  console.log('SENDGRID_FROM_EMAIL:', process.env.SENDGRID_FROM_EMAIL || '❌ Missing');
-  console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
+ console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? ' Set' : ' Missing');
+ console.log('SENDGRID_FROM_EMAIL:', process.env.SENDGRID_FROM_EMAIL || ' Missing');
+ console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
   
   if (!process.env.SENDGRID_API_KEY) {
-    console.log('\n❌ SendGrid not configured. Add SENDGRID_API_KEY to your environment variables.');
+ console.log('\n SendGrid not configured. Add SENDGRID_API_KEY to your environment variables.');
     return;
   }
   
@@ -39,16 +39,16 @@ async function testSendGridSetup() {
       `,
     };
     
-    console.log('\n📧 Sending test email via SendGrid...');
+ console.log('\n Sending test email via SendGrid...');
     const result = await sgMail.send(msg);
     
-    console.log('✅ SendGrid email sent successfully!');
-    console.log('Message ID:', result[0].headers['x-message-id']);
-    console.log('Status:', result[0].statusCode);
+ console.log(' SendGrid email sent successfully!');
+ console.log('Message ID:', result[0].headers['x-message-id']);
+ console.log('Status:', result[0].statusCode);
     
   } catch (error) {
-    console.error('❌ SendGrid test failed:', error.message);
-    console.error('Response:', error.response?.body);
+ console.error(' SendGrid test failed:', error.message);
+ console.error('Response:', error.response?.body);
   }
 }
 

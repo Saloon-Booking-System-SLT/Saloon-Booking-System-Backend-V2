@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
       .sort({ createdAt: -1 });
     res.json(promotions);
   } catch (err) {
-    console.error('Error fetching promotions:', err);
+ console.error('Error fetching promotions:', err);
     res.status(500).json({ message: 'Failed to fetch promotions' });
   }
 });
@@ -24,7 +24,7 @@ router.get('/salon/:salonId', async (req, res) => {
       .sort({ createdAt: -1 });
     res.json(promotions);
   } catch (err) {
-    console.error('Error fetching salon promotions:', err);
+ console.error('Error fetching salon promotions:', err);
     res.status(500).json({ message: 'Failed to fetch salon promotions' });
   }
 });
@@ -36,7 +36,7 @@ router.post('/', async (req, res) => {
     const saved = await promotion.save();
     res.status(201).json(saved);
   } catch (err) {
-    console.error('Error creating promotion:', err);
+ console.error('Error creating promotion:', err);
     res.status(500).json({ message: 'Failed to create promotion' });
   }
 });
@@ -51,7 +51,7 @@ router.put('/:id', async (req, res) => {
     );
     res.json(updated);
   } catch (err) {
-    console.error('Error updating promotion:', err);
+ console.error('Error updating promotion:', err);
     res.status(500).json({ message: 'Failed to update promotion' });
   }
 });
@@ -62,7 +62,7 @@ router.delete('/:id', async (req, res) => {
     await Promotion.findByIdAndDelete(req.params.id);
     res.json({ message: 'Promotion deleted successfully' });
   } catch (err) {
-    console.error('Error deleting promotion:', err);
+ console.error('Error deleting promotion:', err);
     res.status(500).json({ message: 'Failed to delete promotion' });
   }
 });
@@ -144,7 +144,7 @@ router.post('/:id/send-emails', async (req, res) => {
     });
     
   } catch (err) {
-    console.error('Error sending promotional emails:', err);
+ console.error('Error sending promotional emails:', err);
     res.status(500).json({ message: 'Failed to send promotional emails' });
   }
 });

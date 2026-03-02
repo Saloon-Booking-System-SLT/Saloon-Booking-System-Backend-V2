@@ -13,7 +13,7 @@ class CronJobManager {
 
   // Initialize all cron jobs
   initialize() {
-    console.log('🕐 Initializing Cron Jobs for Email Notifications...');
+ console.log(' Initializing Cron Jobs for Email Notifications...');
     
     try {
       // Daily appointment reminders at 9 AM
@@ -22,22 +22,22 @@ class CronJobManager {
       // Feedback request follow-up (day after appointment)
       this.setupFeedbackRequests();
       
-      console.log('✅ Cron Jobs initialized successfully');
+ console.log(' Cron Jobs initialized successfully');
     } catch (error) {
-      console.error('❌ Error initializing cron jobs:', error);
-      console.log('⚠️ Continuing without scheduled notifications');
+ console.error(' Error initializing cron jobs:', error);
+ console.log('️ Continuing without scheduled notifications');
     }
   }
 
   // Send appointment reminders every day at 9 AM
   setupDailyReminders() {
     const reminderJob = cron.schedule('0 9 * * *', async () => {
-      console.log('🔔 Running daily appointment reminders...');
+ console.log(' Running daily appointment reminders...');
       try {
         const result = await notificationService.sendDailyReminders();
-        console.log('📧 Daily reminders result:', result);
+ console.log(' Daily reminders result:', result);
       } catch (error) {
-        console.error('❌ Daily reminders failed:', error);
+ console.error(' Daily reminders failed:', error);
       }
     }, {
       scheduled: true,
@@ -45,17 +45,17 @@ class CronJobManager {
     });
 
     this.jobs.set('dailyReminders', reminderJob);
-    console.log('⏰ Daily appointment reminders scheduled for 9:00 AM');
+ console.log('⏰ Daily appointment reminders scheduled for 9:00 AM');
   }
 
   // Send feedback requests every day at 10 AM (for previous day's completed appointments)
   setupFeedbackRequests() {
     const feedbackJob = cron.schedule('0 10 * * *', async () => {
-      console.log('📝 Running daily feedback requests...');
+ console.log(' Running daily feedback requests...');
       try {
         await this.sendDailyFeedbackRequests();
       } catch (error) {
-        console.error('❌ Daily feedback requests failed:', error);
+ console.error(' Daily feedback requests failed:', error);
       }
     }, {
       scheduled: true,
@@ -63,7 +63,7 @@ class CronJobManager {
     });
 
     this.jobs.set('feedbackRequests', feedbackJob);
-    console.log('📝 Daily feedback requests scheduled for 10:00 AM');
+ console.log(' Daily feedback requests scheduled for 10:00 AM');
   }
 
   // Send feedback requests for yesterday's completed appointments
@@ -83,7 +83,7 @@ class CronJobManager {
         status: 'completed'
       });
 
-      console.log(`📋 Found ${completedAppointments.length} completed appointments from yesterday`);
+ console.log(` Found ${completedAppointments.length} completed appointments from yesterday`);
 
       let feedbackRequestsSent = 0;
 
@@ -113,20 +113,20 @@ class CronJobManager {
 
             if (result.email?.success || result.sms?.success) {
               feedbackRequestsSent++;
-              console.log(`✅ Feedback request sent to ${appointment.user.name}`);
+ console.log(` Feedback request sent to ${appointment.user.name}`);
             }
           }
 
         } catch (error) {
-          console.error(`❌ Failed to send feedback request for appointment ${appointment._id}:`, error);
+ console.error(` Failed to send feedback request for appointment ${appointment._id}:`, error);
         }
       }
 
-      console.log(`📊 Feedback requests complete: ${feedbackRequestsSent}/${completedAppointments.length} sent`);
+ console.log(` Feedback requests complete: ${feedbackRequestsSent}/${completedAppointments.length} sent`);
       return { sent: feedbackRequestsSent, total: completedAppointments.length };
 
     } catch (error) {
-      console.error('❌ Daily feedback requests failed:', error);
+ console.error(' Daily feedback requests failed:', error);
       throw error;
     }
   }
@@ -136,9 +136,9 @@ class CronJobManager {
     const job = this.jobs.get(jobName);
     if (job) {
       job.start();
-      console.log(`✅ Started cron job: ${jobName}`);
+ console.log(` Started cron job: ${jobName}`);
     } else {
-      console.error(`❌ Job not found: ${jobName}`);
+ console.error(` Job not found: ${jobName}`);
     }
   }
 
@@ -147,9 +147,9 @@ class CronJobManager {
     const job = this.jobs.get(jobName);
     if (job) {
       job.stop();
-      console.log(`🛑 Stopped cron job: ${jobName}`);
+ console.log(` Stopped cron job: ${jobName}`);
     } else {
-      console.error(`❌ Job not found: ${jobName}`);
+ console.error(` Job not found: ${jobName}`);
     }
   }
 
@@ -167,12 +167,12 @@ class CronJobManager {
 
   // Manual trigger for testing
   async triggerDailyReminders() {
-    console.log('🧪 Manually triggering daily reminders...');
+ console.log(' Manually triggering daily reminders...');
     return await notificationService.sendDailyReminders();
   }
 
   async triggerFeedbackRequests() {
-    console.log('🧪 Manually triggering feedback requests...');
+ console.log(' Manually triggering feedback requests...');
     return await this.sendDailyFeedbackRequests();
   }
 }

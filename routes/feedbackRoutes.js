@@ -39,7 +39,7 @@ router.post("/", async (req, res) => {
     const saved = await feedback.save();
     res.status(201).json(saved);
   } catch (err) {
-    console.error("Error saving feedback:", err);
+ console.error("Error saving feedback:", err);
     res.status(500).json({ message: "Failed to submit feedback" });
   }
 });
@@ -61,7 +61,7 @@ router.get("/check/:appointmentId", async (req, res) => {
 
     res.json({ hasReviewed: !!existingFeedback });
   } catch (err) {
-    console.error("Error checking feedback:", err);
+ console.error("Error checking feedback:", err);
     res.status(500).json({ message: "Failed to check feedback status" });
   }
 });
@@ -77,7 +77,7 @@ router.get("/salon/:salonId", async (req, res) => {
       .populate('professionalId', 'name');
     res.json(feedbacks);
   } catch (err) {
-    console.error("Error fetching salon feedbacks:", err);
+ console.error("Error fetching salon feedbacks:", err);
     res.status(500).json({ message: "Failed to fetch salon feedbacks" });
   }
 });
@@ -103,7 +103,7 @@ router.get("/professionals/:professionalId", async (req, res) => {
       averageRating,
     });
   } catch (err) {
-    console.error("Error fetching professional feedbacks:", err);
+ console.error("Error fetching professional feedbacks:", err);
     res.status(500).json({ message: "Failed to fetch professional feedbacks" });
   }
 });
@@ -131,7 +131,7 @@ router.get("/with-feedbacks/:salonId", async (req, res) => {
 
     res.json(professionalsWithFeedbacks);
   } catch (err) {
-    console.error("Error fetching professionals with feedbacks:", err);
+ console.error("Error fetching professionals with feedbacks:", err);
     res.status(500).json({ message: "Failed to fetch professionals with feedbacks" });
   }
 });

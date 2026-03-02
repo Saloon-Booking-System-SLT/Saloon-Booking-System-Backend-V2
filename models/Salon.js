@@ -26,8 +26,8 @@ const salonSchema = new mongoose.Schema({
   // ✅ ADD THESE FIELDS FOR APPROVAL SYSTEM
   approvalStatus: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'approved' // ✅ Set to 'approved' for existing salons, or 'pending' for new workflow
+    enum: ['pending', 'approved', 'rejected', 'terminated'],
+    default: 'pending' // ✅ New salons default to pending
   },
   rejectionReason: {
     type: String,

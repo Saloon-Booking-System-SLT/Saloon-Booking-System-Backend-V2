@@ -3,14 +3,14 @@ require('dotenv').config();
 const emailService = require('./services/emailService');
 
 async function testAlternativePort() {
-  console.log('🧪 Testing Alternative SMTP Ports for Hosting Compatibility');
-  console.log('=' .repeat(60));
+ console.log(' Testing Alternative SMTP Ports for Hosting Compatibility');
+ console.log('=' .repeat(60));
   
   // Test with different ports
   const ports = [465, 587, 25, 2525];
   
   for (const port of ports) {
-    console.log(`\n🔧 Testing Port ${port}...`);
+ console.log(`\n Testing Port ${port}...`);
     
     // Set environment variable temporarily
     process.env.EMAIL_PORT = port.toString();
@@ -20,10 +20,10 @@ async function testAlternativePort() {
       await emailService.reinitialize();
       
       const status = emailService.getStatus();
-      console.log(`📊 Port ${port} Status:`, status);
+ console.log(` Port ${port} Status:`, status);
       
       if (status.connected) {
-        console.log(`✅ Port ${port} works! This port is not blocked.`);
+ console.log(` Port ${port} works! This port is not blocked.`);
         
         // Send a test email if connection works
         const testEmail = emailService.createMailOptions(
@@ -46,21 +46,21 @@ async function testAlternativePort() {
         
         const result = await emailService.sendEmail(testEmail);
         if (result.success) {
-          console.log(`🎉 Test email sent successfully via port ${port}!`);
-          console.log(`📧 Message ID: ${result.messageId}`);
+ console.log(` Test email sent successfully via port ${port}!`);
+ console.log(` Message ID: ${result.messageId}`);
           break; // Stop testing once we find a working port
         }
       } else {
-        console.log(`❌ Port ${port} is blocked or failed`);
+ console.log(` Port ${port} is blocked or failed`);
       }
       
     } catch (error) {
-      console.log(`❌ Port ${port} failed:`, error.message);
+ console.log(` Port ${port} failed:`, error.message);
     }
   }
   
-  console.log('\n📋 Port Testing Complete');
-  console.log('💡 Use the working port in your production environment variables');
+ console.log('\n Port Testing Complete');
+ console.log(' Use the working port in your production environment variables');
 }
 
 testAlternativePort().catch(console.error);

@@ -5,13 +5,13 @@ const sgMail = require('@sendgrid/mail'); // SendGrid API
 // SendGrid configuration for production
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  console.log('📧 SendGrid API initialized for production');
+ console.log(' SendGrid API initialized for production');
 }
 
 // Enhanced Gmail SMTP configuration for production
 const createEmailTransporter = () => {
   try {
-    console.log('📧 Creating enhanced Gmail SMTP transporter...');
+ console.log(' Creating enhanced Gmail SMTP transporter...');
     
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -34,10 +34,10 @@ const createEmailTransporter = () => {
       maxMessages: 1
     });
 
-    console.log('📧 Enhanced Gmail SMTP transporter created successfully');
+ console.log(' Enhanced Gmail SMTP transporter created successfully');
     return transporter;
   } catch (error) {
-    console.error('❌ Gmail SMTP configuration failed:', error);
+ console.error(' Gmail SMTP configuration failed:', error);
     return null;
   }
 };
@@ -52,12 +52,12 @@ const createTwilioClient = () => {
     try {
       return twilio(accountSid, authToken);
     } catch (error) {
-      console.warn('⚠️ Twilio initialization failed:', error.message);
+ console.warn('️ Twilio initialization failed:', error.message);
       return null;
     }
   }
   
-  console.log('📱 Twilio not configured - SMS notifications disabled');
+ console.log(' Twilio not configured - SMS notifications disabled');
   return null;
 };
 
@@ -1822,29 +1822,29 @@ const smsTemplates = {
 class NotificationService {
   constructor() {
     // Professional Email Service is auto-initialized
-    console.log('📧 Professional Email Service Status:', emailService.getStatus());
+ console.log(' Professional Email Service Status:', emailService.getStatus());
 
     try {
       this.twilioClient = createTwilioClient();
       if (this.twilioClient) {
-        console.log('📱 Twilio service initialized');
+ console.log(' Twilio service initialized');
       }
     } catch (error) {
-      console.error('❌ Twilio service initialization failed:', error);
+ console.error(' Twilio service initialization failed:', error);
       this.twilioClient = null;
     }
   }
 
   // Test email connection using professional service
   async testEmailConnection() {
-    console.log('🔍 Testing Professional Email Service...');
+ console.log(' Testing Professional Email Service...');
     return await emailService.testConnection();
   }
 
   // Professional email sending with advanced error handling
   async sendEmail(to, template, data) {
     try {
-      console.log(`📧 Preparing ${template} email for: ${to}`);
+ console.log(` Preparing ${template} email for: ${to}`);
       
       const emailContent = emailTemplates[template](data);
       
@@ -1865,7 +1865,7 @@ class NotificationService {
       const result = await emailService.sendEmail(mailOptions, 3);
       
       if (result.success) {
-        console.log('✅ Professional email sent successfully:', {
+ console.log(' Professional email sent successfully:', {
           to: to,
           template: template,
           messageId: result.messageId,
@@ -1873,7 +1873,7 @@ class NotificationService {
           attempt: result.attempt
         });
       } else {
-        console.error('❌ Professional email sending failed:', {
+ console.error(' Professional email sending failed:', {
           to: to,
           template: template,
           error: result.error,
@@ -1886,7 +1886,7 @@ class NotificationService {
       return result;
       
     } catch (error) {
-      console.error('❌ Email preparation failed:', error);
+ console.error(' Email preparation failed:', error);
       return { success: false, error: error.message };
     }
   }
@@ -1902,10 +1902,10 @@ class NotificationService {
         html: emailContent.html,
       };
 
-      console.log('📧 Sending email via SendGrid API...');
+ console.log(' Sending email via SendGrid API...');
       const result = await sgMail.send(msg);
       
-      console.log('✅ SendGrid email sent successfully:', {
+ console.log(' SendGrid email sent successfully:', {
         to: to,
         messageId: result[0].headers['x-message-id'],
         service: 'SendGrid API'
@@ -1918,7 +1918,7 @@ class NotificationService {
       };
       
     } catch (error) {
-      console.error('❌ SendGrid email failed:', {
+ console.error(' SendGrid email failed:', {
         error: error.message,
         code: error.code,
         response: error.response?.body
@@ -1935,24 +1935,24 @@ class NotificationService {
   // Send SMS notification
   async sendSMS(to, template, data) {
     if (!this.twilioClient) {
-      console.log('⚠️ Twilio not configured, skipping SMS');
+ console.log('️ Twilio not configured, skipping SMS');
       return { success: false, error: 'Twilio not configured' };
     }
 
     try {
       const message = smsTemplates[template](data);
       
-      console.log(`📱 Sending ${template} SMS to: ${to}`);
+ console.log(` Sending ${template} SMS to: ${to}`);
       const result = await this.twilioClient.messages.create({
         body: message,
         from: process.env.TWILIO_PHONE_NUMBER,
         to: to
       });
 
-      console.log('✅ SMS sent successfully:', result.sid);
+ console.log(' SMS sent successfully:', result.sid);
       return { success: true, sid: result.sid };
     } catch (error) {
-      console.error('❌ SMS sending failed:', error);
+ console.error(' SMS sending failed:', error);
       return { success: false, error: error.message };
     }
   }
@@ -2156,7 +2156,7 @@ class NotificationService {
     const { salonName, ownerEmail } = salonData;
     
     if (ownerEmail) {
-      console.log(`📧 Sending salon registration confirmation to: ${ownerEmail}`);
+ console.log(` Sending salon registration confirmation to: ${ownerEmail}`);
       return await this.sendEmail(ownerEmail, 'salonRegistrationConfirmation', {
         salonName,
         ownerEmail
@@ -2171,7 +2171,7 @@ class NotificationService {
     const { salonName, ownerEmail } = salonData;
     
     if (ownerEmail) {
-      console.log(`📧 Sending salon approval notification to: ${ownerEmail}`);
+ console.log(` Sending salon approval notification to: ${ownerEmail}`);
       return await this.sendEmail(ownerEmail, 'salonApprovalNotification', {
         salonName,
         ownerEmail
@@ -2186,7 +2186,7 @@ class NotificationService {
     const { salonName, ownerEmail, rejectionReason } = salonData;
     
     if (ownerEmail) {
-      console.log(`📧 Sending salon rejection notification to: ${ownerEmail}`);
+ console.log(` Sending salon rejection notification to: ${ownerEmail}`);
       return await this.sendEmail(ownerEmail, 'salonRejectionNotification', {
         salonName,
         ownerEmail,
@@ -2284,7 +2284,7 @@ class NotificationService {
 
   // Bulk email sending for promotions
   async sendBulkPromotionalEmails(customerList, promotionData) {
-    console.log(`📧 Sending promotional emails to ${customerList.length} customers...`);
+ console.log(` Sending promotional emails to ${customerList.length} customers...`);
     
     const results = {
       success: 0,
@@ -2318,7 +2318,7 @@ class NotificationService {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
       } catch (error) {
-        console.error(`❌ Failed to send to ${customer.email}:`, error);
+ console.error(` Failed to send to ${customer.email}:`, error);
         results.failed++;
         results.results.push({
           email: customer.email,
@@ -2328,14 +2328,14 @@ class NotificationService {
       }
     }
     
-    console.log(`✅ Bulk email complete: ${results.success} success, ${results.failed} failed`);
+ console.log(` Bulk email complete: ${results.success} success, ${results.failed} failed`);
     return results;
   }
 
   // Schedule appointment reminders (to be called by a cron job)
   async sendDailyReminders() {
     try {
-      console.log('📅 Checking for appointments to remind...');
+ console.log(' Checking for appointments to remind...');
       
       // Get tomorrow's date
       const tomorrow = new Date();
@@ -2351,7 +2351,7 @@ class NotificationService {
         status: { $nin: ['cancelled', 'completed'] }
       });
       
-      console.log(`📧 Found ${tomorrowAppointments.length} appointments for tomorrow`);
+ console.log(` Found ${tomorrowAppointments.length} appointments for tomorrow`);
       
       let remindersent = 0;
       
@@ -2372,19 +2372,19 @@ class NotificationService {
           
           if (result.email?.success || result.sms?.success) {
             remindersent++;
-            console.log(`✅ Reminder sent to ${appointment.user.name}`);
+ console.log(` Reminder sent to ${appointment.user.name}`);
           }
           
         } catch (error) {
-          console.error(`❌ Failed to send reminder for appointment ${appointment._id}:`, error);
+ console.error(` Failed to send reminder for appointment ${appointment._id}:`, error);
         }
       }
       
-      console.log(`📊 Daily reminders complete: ${remindersent}/${tomorrowAppointments.length} sent`);
+ console.log(` Daily reminders complete: ${remindersent}/${tomorrowAppointments.length} sent`);
       return { sent: remindersent, total: tomorrowAppointments.length };
       
     } catch (error) {
-      console.error('❌ Daily reminders failed:', error);
+ console.error(' Daily reminders failed:', error);
       return { error: error.message };
     }
   }

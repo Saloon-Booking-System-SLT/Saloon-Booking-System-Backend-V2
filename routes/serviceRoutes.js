@@ -21,7 +21,7 @@ router.post("/", upload.single("image"), async (req, res) => {
     await service.save();
     res.status(201).json(service);
   } catch (err) {
-    console.error(err);
+ console.error(err);
     res.status(400).json({ message: "Failed to add service" });
   }
 });
@@ -71,7 +71,7 @@ router.get('/', async (req, res) => {
       data: services
     });
   } catch (error) {
-    console.error('Error fetching services:', error);
+ console.error('Error fetching services:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching services'

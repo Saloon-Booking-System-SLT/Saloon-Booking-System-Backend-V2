@@ -48,7 +48,7 @@ class PayHereService {
 
         // Verify merchant ID matches
         if (merchant_id !== this.merchantId) {
-            console.warn(`PayHere merchant ID mismatch: received ${merchant_id}, expected ${this.merchantId}`);
+ console.warn(`PayHere merchant ID mismatch: received ${merchant_id}, expected ${this.merchantId}`);
             return false;
         }
 

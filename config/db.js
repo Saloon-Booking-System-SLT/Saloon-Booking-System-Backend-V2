@@ -14,11 +14,11 @@ const connectDB = async () => {
       retryWrites: true, // Automatically retry failed writes
       retryReads: true, // Automatically retry failed reads
     });
-    console.log('✅ MongoDB connected');
+ console.log(' MongoDB connected');
   } catch (err) {
-    console.error('❌ MongoDB connection failed:', err.message);
+ console.error(' MongoDB connection failed:', err.message);
     // Don't exit process, let the app handle graceful degradation
-    console.log('⚠️ Server will continue with email-only functionality');
+ console.log('️ Server will continue with email-only functionality');
   }
 };
 

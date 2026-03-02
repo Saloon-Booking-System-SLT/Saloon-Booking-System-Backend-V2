@@ -32,7 +32,7 @@ router.post("/", upload, async (req, res) => {
       try {
         parsedServices = typeof services === 'string' ? JSON.parse(services) : services;
       } catch (e) {
-        console.warn("Could not parse services array:", e);
+ console.warn("Could not parse services array:", e);
       }
     }
 
@@ -51,7 +51,7 @@ router.post("/", upload, async (req, res) => {
     await professional.save();
     res.status(201).json({ message: "Saved Successfully", data: professional });
   } catch (err) {
-    console.error("CREATE ERROR:", err);
+ console.error("CREATE ERROR:", err);
     res.status(500).json({ error: "Save failed", details: err.message });
   }
 });
@@ -72,7 +72,7 @@ router.put("/:id", upload, async (req, res) => {
       try {
         updateData.services = typeof services === 'string' ? JSON.parse(services) : services;
       } catch (e) {
-        console.warn("Could not parse services array:", e);
+ console.warn("Could not parse services array:", e);
       }
     }
 
@@ -92,7 +92,7 @@ router.put("/:id", upload, async (req, res) => {
 
     res.json({ message: "Updated Successfully", data: updated });
   } catch (err) {
-    console.error("UPDATE ERROR:", err);
+ console.error("UPDATE ERROR:", err);
     res.status(500).json({ error: "Update failed", details: err.message });
   }
 });
@@ -136,14 +136,14 @@ router.put("/:id/services", async (req, res) => {
       return res.status(404).json({ error: "Professional not found" });
     }
 
-    console.log(`✅ Assigned ${services.length} services to professional ${updated.name}`);
+ console.log(` Assigned ${services.length} services to professional ${updated.name}`);
     res.json({ 
       message: "Services assigned successfully", 
       data: updated,
       assignedServices: updated.services
     });
   } catch (err) {
-    console.error("ASSIGN SERVICES ERROR:", err);
+ console.error("ASSIGN SERVICES ERROR:", err);
     res.status(500).json({ error: "Failed to assign services", details: err.message });
   }
 });
@@ -156,7 +156,7 @@ router.delete("/:id", async (req, res) => {
 
     res.json({ message: "Deleted Successfully" });
   } catch (err) {
-    console.error("DELETE ERROR:", err);
+ console.error("DELETE ERROR:", err);
     res.status(500).json({ error: "Delete failed", details: err.message });
   }
 });
@@ -173,7 +173,7 @@ router.get("/:salonId", async (req, res) => {
       .lean();
     res.json(professionals);
   } catch (err) {
-    console.error("FETCH ERROR:", err);
+ console.error("FETCH ERROR:", err);
     res.status(500).json({ error: "Fetch failed", details: err.message });
   }
 });
@@ -203,7 +203,7 @@ router.get("/by-services/:salonId", async (req, res) => {
     // Parse comma-separated service IDs
     const serviceIdArray = serviceIds.split(',').map(id => id.trim());
     
-    console.log(`🔍 Finding professionals for salon ${salonId} with services: ${serviceIdArray}`);
+ console.log(` Finding professionals for salon ${salonId} with services: ${serviceIdArray}`);
 
     // Find professionals who have ANY of the requested services
     const professionals = await Professional.find({
@@ -214,7 +214,7 @@ router.get("/by-services/:salonId", async (req, res) => {
     .populate('services', 'name price duration gender')
     .lean();
 
-    console.log(`✅ Found ${professionals.length} professionals matching the services`);
+ console.log(` Found ${professionals.length} professionals matching the services`);
 
     // Add helper field to show which requested services each professional can do
     const result = professionals.map(pro => ({
@@ -229,7 +229,7 @@ router.get("/by-services/:salonId", async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    console.error("FETCH BY SERVICES ERROR:", err);
+ console.error("FETCH BY SERVICES ERROR:", err);
     res.status(500).json({ error: "Fetch failed", details: err.message });
   }
 });
@@ -248,7 +248,7 @@ router.get("/for-service/:salonId/:serviceId", async (req, res) => {
   try {
     const { salonId, serviceId } = req.params;
     
-    console.log(`🔍 Finding professionals for salon ${salonId} who can do service ${serviceId}`);
+ console.log(` Finding professionals for salon ${salonId} who can do service ${serviceId}`);
 
     const professionals = await Professional.find({
       salonId: salonId,
@@ -258,11 +258,11 @@ router.get("/for-service/:salonId/:serviceId", async (req, res) => {
     .populate('services', 'name price duration gender')
     .lean();
 
-    console.log(`✅ Found ${professionals.length} professionals for service ${serviceId}`);
+ console.log(` Found ${professionals.length} professionals for service ${serviceId}`);
 
     res.json(professionals);
   } catch (err) {
-    console.error("FETCH FOR SERVICE ERROR:", err);
+ console.error("FETCH FOR SERVICE ERROR:", err);
     res.status(500).json({ error: "Fetch failed", details: err.message });
   }
 });

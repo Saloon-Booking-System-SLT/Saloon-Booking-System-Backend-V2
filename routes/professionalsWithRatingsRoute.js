@@ -11,7 +11,7 @@ const Feedback = require('../models/feedbackModel');
 router.get('/:salonId/with-ratings', async (req, res) => {
   try {
     const { salonId } = req.params;
-    console.log(`📊 Fetching professionals with ratings for salon: ${salonId}`);
+ console.log(` Fetching professionals with ratings for salon: ${salonId}`);
     const startTime = Date.now();
 
     // Get all professionals for this salon
@@ -22,7 +22,7 @@ router.get('/:salonId/with-ratings', async (req, res) => {
       return res.json([]);
     }
 
-    console.log(`✅ Found ${professionals.length} professionals`);
+ console.log(` Found ${professionals.length} professionals`);
 
     // Get all feedback for these professionals in ONE query
     const professionalIds = professionals.map(p => p._id);
@@ -33,7 +33,7 @@ router.get('/:salonId/with-ratings', async (req, res) => {
       .select('professionalId rating comment createdAt')
       .lean();
 
-    console.log(`✅ Found ${feedbacks.length} feedbacks`);
+ console.log(` Found ${feedbacks.length} feedbacks`);
 
     // Create a map of professionalId -> feedbacks array
     const feedbackMap = {};
@@ -64,12 +64,12 @@ router.get('/:salonId/with-ratings', async (req, res) => {
     professionalsWithRatings.sort((a, b) => b.avgRating - a.avgRating);
 
     const endTime = Date.now();
-    console.log(`⚡ Completed in ${endTime - startTime}ms`);
+ console.log(` Completed in ${endTime - startTime}ms`);
 
     res.json(professionalsWithRatings);
 
   } catch (error) {
-    console.error('❌ Error fetching professionals with ratings:', error);
+ console.error(' Error fetching professionals with ratings:', error);
     res.status(500).json({ 
       message: 'Failed to fetch professionals with ratings',
       error: error.message 

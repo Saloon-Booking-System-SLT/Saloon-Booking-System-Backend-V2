@@ -4,7 +4,7 @@ require('dotenv').config();
 const emailService = require('./services/emailService');
 
 async function sendTestEmailToOjitha() {
-  console.log('📧 Sending test email to ojitharajapaksha@gmail.com...');
+ console.log(' Sending test email to ojitharajapaksha@gmail.com...');
   
   const mailOptions = emailService.createMailOptions(
     'ojitharajapaksha@gmail.com',
@@ -79,17 +79,17 @@ async function sendTestEmailToOjitha() {
   const result = await emailService.sendEmail(mailOptions, 3);
   
   if (result.success) {
-    console.log('🎉 Test email sent successfully to ojitharajapaksha@gmail.com!');
-    console.log('📧 Email Details:', {
+ console.log(' Test email sent successfully to ojitharajapaksha@gmail.com!');
+ console.log(' Email Details:', {
       to: 'ojitharajapaksha@gmail.com',
       messageId: result.messageId,
       service: result.service,
       attempt: result.attempt,
       timestamp: new Date().toISOString()
     });
-    console.log('\n💌 Please check your inbox for the test email!');
+ console.log('\n Please check your inbox for the test email!');
   } else {
-    console.error('❌ Failed to send test email:', {
+ console.error(' Failed to send test email:', {
       error: result.error,
       code: result.code,
       suggestion: result.suggestion,
