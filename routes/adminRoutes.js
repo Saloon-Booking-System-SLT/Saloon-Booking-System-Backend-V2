@@ -72,7 +72,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Firebase Admin Login
+// Firebase Admin Login - Added for Firebase authentication support
 router.post('/firebase-login', async (req, res) => {
   const { name, email, photoURL } = req.body;
 
