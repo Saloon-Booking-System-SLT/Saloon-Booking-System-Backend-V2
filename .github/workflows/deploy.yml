@@ -53,7 +53,9 @@ jobs:
           ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
-            cp -rl tmp_deploy/* .
+            # Copy files with force overwrite (no hard links)
+            cp -rf tmp_deploy/* . 2>/dev/null || true
+            cp -rf tmp_deploy/.* . 2>/dev/null || true
             rm -rf tmp_deploy
             printf '%s\n' \"${{ secrets.BACKEND_ENV }}\" > .env
             npm install --omit=dev
