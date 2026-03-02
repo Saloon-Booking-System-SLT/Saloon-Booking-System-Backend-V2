@@ -133,6 +133,57 @@ router.post('/firebase-login', async (req, res) => {
   }
 });
 
+// Manual Admin Seeding Endpoint (for production setup)
+router.post('/seed-admin', async (req, res) => {
+  try {
+    const PRINCIPAL_EMAIL = 'admin@saloonbooking.lk';
+    const PRINCIPAL_PASSWORD = 'ABcd123#';
+
+    // Check if admin already exists
+    const existingAdmin = await Admin.findOne({ email: PRINCIPAL_EMAIL });
+    if (existingAdmin) {
+      return res.json({
+        success: true,
+        message: 'Principal admin already exists',
+        admin: {
+          id: existingAdmin._id,
+          email: existingAdmin.email,
+          name: existingAdmin.name
+        }
+      });
+    }
+
+    // Create the principal admin
+    const hashedPassword = await bcrypt.hash(PRINCIPAL_PASSWORD, 10);
+    const admin = new Admin({
+      name: 'Principal Admin',
+      email: PRINCIPAL_EMAIL,
+      password: hashedPassword,
+      role: 'admin'
+    });
+    await admin.save();
+
+    console.log('Principal admin seeded successfully');
+    return res.json({
+      success: true,
+      message: 'Principal admin created successfully',
+      admin: {
+        id: admin._id,
+        email: admin.email,
+        name: admin.name
+      }
+    });
+
+  } catch (err) {
+    console.error('Admin seeding error:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error seeding admin account',
+      error: err.message 
+    });
+  }
+});
+
 // GET: Dashboard Statistics (Protected - Admin only)
 router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
