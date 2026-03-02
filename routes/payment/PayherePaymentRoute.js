@@ -16,6 +16,14 @@ router.post('/initiate', async (req, res) => {
             });
         }
 
+        // Validate customer fields
+        if (!customer.email || !customer.first_name) {
+            return res.status(400).json({
+                success: false,
+                error: 'Customer email and first name are required'
+            });
+        }
+
         // Check if a successful payment already exists for this appointment
         const existingPayment = await Payment.findOne({
             appointmentId: appointmentId,

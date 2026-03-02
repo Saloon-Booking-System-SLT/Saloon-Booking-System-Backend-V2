@@ -96,6 +96,16 @@ class PayHereService {
      * Get formatted payment data for frontend form
      */
     getPaymentData(orderId, amount, currency, customerDetails, metadata = {}) {
+        // Validate configuration
+        if (!this.merchantId || !this.merchantSecret) {
+            throw new Error('PayHere merchant credentials not properly configured');
+        }
+
+        // Validate required customer fields
+        if (!customerDetails || !customerDetails.email || !customerDetails.first_name) {
+            throw new Error('Customer email and first_name are required for PayHere payment');
+        }
+
         const hash = this.generateHash(orderId, amount, currency);
 
         return {
