@@ -49,7 +49,7 @@ jobs:
           # Sync files excluding specific directories
           rsync -az --delete --exclude 'node_modules' --exclude '.git' --exclude '.env' -e "ssh -p ${{ secrets.SSH_PORT }}" ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/tmp_deploy/"
 
-          # Execute SSH commands to update and restart
+          # Execute SSH commands to update, restart, and verify health
           ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
@@ -59,20 +59,11 @@ jobs:
             npm install --omit=dev
             pm2 reload salon-backend || pm2 start server.js --name salon-backend
             pm2 save
+            
+            echo \"waiting for pm2 application to start...\"
+            sleep 10
+            curl -f http://localhost:10000/api/health || exit 1
           "
-
-      - name: Verify Deployment (Health Check)
-        run: |
-          echo "Waiting for PM2 application to start..."
-          sleep 10
-          curl -f http://${{ secrets.SSH_HOST }}:5000/api/health || exit 1
-
-      - name: OWASP ZAP Dynamic Scan
-        uses: zaproxy/action-baseline@v0.12.0
-        continue-on-error: true
-        with:
-          target: "http://${{ secrets.SSH_HOST }}:5000"
-          fail_action: false
 
       - name: Cleanup SSH
         if: always()
