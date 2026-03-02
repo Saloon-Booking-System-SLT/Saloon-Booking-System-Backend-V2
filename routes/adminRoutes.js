@@ -14,40 +14,11 @@ const notificationService = require('../services/notificationService');
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
-  // Hardcoded admin credentials
-  const ADMIN_USERNAME = 'admin';
-  const ADMIN_PASSWORD = 'admin123';
-
-  try {
-    // Validate credentials
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      // Generate JWT token for admin
-      const token = generateToken({
-        userId: 'admin', // You can use a specific ID or just 'admin'
-        username: ADMIN_USERNAME,
-        role: 'admin'
-      });
-
-      return res.json({
-        success: true,
-        message: 'Login successful',
-        token,
-        admin: {
-          id: 'admin',
-          username: ADMIN_USERNAME,
-          role: 'admin'
-        }
-      });
-    } else {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid username or password'
-      });
-    }
-  } catch (err) {
-    console.error('Admin login error:', err);
-    res.status(500).json({ message: 'Server error during login' });
-  }
+  // Use Firebase Email/Password login instead of this legacy route
+  return res.status(410).json({
+    success: false,
+    message: 'Legacy login is disabled. Please use the modern login screen.'
+  });
 });
 
 // Admin Firebase Login (Email/Password)
