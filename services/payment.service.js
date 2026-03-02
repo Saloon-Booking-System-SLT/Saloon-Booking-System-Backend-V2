@@ -23,11 +23,23 @@ class PayHereService {
             .toUpperCase();
 
         const dataToHash = `${this.merchantId}${orderId}${formattedAmount}${currency}${secretHash}`;
+        
+        console.log('Hash generation debug:', {
+            merchantId: this.merchantId,
+            orderId,
+            formattedAmount,
+            currency,
+            secretHashLength: secretHash.length,
+            dataToHash
+        });
 
-        return crypto.createHash('md5')
+        const finalHash = crypto.createHash('md5')
             .update(dataToHash)
             .digest('hex')
             .toUpperCase();
+            
+        console.log('Generated hash:', finalHash);
+        return finalHash;
     }
 
     /**
@@ -96,6 +108,16 @@ class PayHereService {
      * Get formatted payment data for frontend form
      */
     getPaymentData(orderId, amount, currency, customerDetails, metadata = {}) {
+        // Validate configuration
+        if (!this.merchantId || !this.merchantSecret) {
+            throw new Error('PayHere merchant credentials not properly configured');
+        }
+
+        // Validate required customer fields
+        if (!customerDetails || !customerDetails.email || !customerDetails.first_name) {
+            throw new Error('Customer email and first_name are required for PayHere payment');
+        }
+
         const hash = this.generateHash(orderId, amount, currency);
 
         return {
