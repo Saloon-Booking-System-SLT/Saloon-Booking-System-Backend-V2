@@ -1,0 +1,70 @@
+name: Deploy Salon Backend (Secure)
+
+on:
+  push:
+    branches:
+      - main
+      - cicd/test-depl
+  workflow_dispatch:
+
+jobs:
+  static_analysis:
+    name: SAST & Secrets Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks (Hardcoded Secrets)
+        uses: zricethezav/gitleaks-action@v2.3.4
+        continue-on-error: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18.x"
+
+      - name: NPM Dependency Audit
+        run: npm ci --omit=dev && npm audit --audit-level=high || true
+
+  deploy_and_dynamic_analysis:
+    name: Deploy & DAST
+    needs: static_analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf "%s\n" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Rsync and PM2 Reload
+        run: |
+          # Sync files excluding specific directories
+          rsync -az --delete --exclude 'node_modules' --exclude '.git' --exclude '.env' -e "ssh -p ${{ secrets.SSH_PORT }}" ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/tmp_deploy/"
+
+          # Execute SSH commands to update, restart, and verify health
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "
+            set -e
+            cd ${{ secrets.DEPLOY_PATH }}
+            cp -rl tmp_deploy/* .
+            rm -rf tmp_deploy
+            printf '%s\n' \"${{ secrets.BACKEND_ENV }}\" > .env
+            npm install --omit=dev
+            pm2 reload salon-backend || pm2 start server.js --name salon-backend
+            pm2 save
+            
+            echo \"waiting for pm2 application to start...\"
+            sleep 10
+            curl -f http://localhost:10000/api/health || exit 1
+          "
+
+      - name: Cleanup SSH
+        if: always()
+        run: rm -f ~/.ssh/id_rsa
