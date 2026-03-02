@@ -50,14 +50,14 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Admin Google Login
-router.post('/google-login', async (req, res) => {
+// Admin Firebase Login (Email/Password)
+router.post('/firebase-login', async (req, res) => {
   const { name, email, photoURL } = req.body;
 
   // List of authorized admin emails
   const AUTHORIZED_ADMINS = [
-    'ojitharajapaksha@gmail.com', // Google Auth
-    'admin@saloonbooking.lk'      // Email/Password Auth
+    'ojitharajapaksha@gmail.com', // Developer
+    'admin@saloonbooking.lk'      // Principal Admin
   ];
 
   try {
@@ -72,7 +72,7 @@ router.post('/google-login', async (req, res) => {
 
       return res.json({
         success: true,
-        message: 'Google login successful',
+        message: 'Admin login successful',
         token,
         admin: {
           id: 'admin',
@@ -89,8 +89,8 @@ router.post('/google-login', async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('Admin google login error:', err);
-    res.status(500).json({ message: 'Server error during Google login' });
+    console.error('Admin firebase login error:', err);
+    res.status(500).json({ message: 'Server error during login' });
   }
 });
 
