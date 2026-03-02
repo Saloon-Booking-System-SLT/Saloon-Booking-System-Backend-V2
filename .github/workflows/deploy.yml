@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - cicd/depl-pipeline
+      - cicd/test-depl
   workflow_dispatch:
 
 jobs:
