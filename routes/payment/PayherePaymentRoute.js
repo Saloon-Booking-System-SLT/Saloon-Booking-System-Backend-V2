@@ -61,6 +61,15 @@ router.post('/initiate', async (req, res) => {
             customer
         );
 
+        console.log('PayHere payment data generated:', {
+            merchant_id: paymentData.merchant_id,
+            order_id: paymentData.order_id,
+            amount: paymentData.amount,
+            currency: paymentData.currency,
+            hash: paymentData.hash,
+            sandbox: paymentData.sandbox
+        });
+
         res.json({
             success: true,
             data: paymentData
