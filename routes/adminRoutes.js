@@ -5,65 +5,75 @@ const User = require('../models/User');
 const Salon = require('../models/Salon');
 const Professional = require('../models/Professional');
 const Feedback = require('../models/feedbackModel');
+const Admin = require('../models/Admin');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/jwtUtils');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 const notificationService = require('../services/notificationService');
 
 // Admin Login with JWT tokens
+// Admin Login (Email/Password - No Firebase)
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-
-  // Use Firebase Email/Password login instead of this legacy route
-  return res.status(410).json({
-    success: false,
-    message: 'Legacy login is disabled. Please use the modern login screen.'
-  });
-});
-
-// Admin Firebase Login (Email/Password)
-router.post('/firebase-login', async (req, res) => {
-  const { name, email, photoURL } = req.body;
-
-  // List of authorized admin emails
-  const AUTHORIZED_ADMINS = [
-    'ojitharajapaksha@gmail.com', // Developer
-    'admin@saloonbooking.lk'      // Principal Admin
-  ];
+  const { email, password } = req.body;
 
   try {
-    if (AUTHORIZED_ADMINS.includes(email)) {
-      // Generate JWT token for admin
-      const token = generateToken({
-        userId: 'admin', // keep 'admin' to preserve backward compatibility
-        username: name || 'Admin',
-        email: email,
-        role: 'admin',
-      });
+    // 1. SELF-SEEDING: Check if the principal admin exists
+    const PRINCIPAL_EMAIL = 'admin@saloonbooking.lk';
+    const PRINCIPAL_PASSWORD = 'ABcd123#';
 
-      return res.json({
-        success: true,
-        message: 'Admin login successful',
-        token,
-        admin: {
-          id: 'admin',
-          username: name || 'Admin User',
-          email: email,
-          role: 'admin',
-          photoURL: photoURL
-        }
+    let admin = await Admin.findOne({ email: PRINCIPAL_EMAIL });
+
+    if (!admin && email === PRINCIPAL_EMAIL) {
+      console.log('Seeding principal admin account...');
+      const hashedPassword = await bcrypt.hash(PRINCIPAL_PASSWORD, 10);
+      admin = new Admin({
+        name: 'Principal Admin',
+        email: PRINCIPAL_EMAIL,
+        password: hashedPassword,
+        role: 'admin'
       });
-    } else {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized email. You do not have admin access.',
-      });
+      await admin.save();
     }
+
+    // 2. Authentication logic
+    const user = await Admin.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid admin credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Invalid admin credentials' });
+    }
+
+    // 3. Generate JWT token
+    const token = generateToken({
+      userId: user._id,
+      email: user.email,
+      role: 'admin',
+      username: user.name
+    });
+
+    return res.json({
+      success: true,
+      message: 'Admin login successful',
+      token,
+      admin: {
+        id: user._id,
+        username: user.name,
+        email: user.email,
+        role: 'admin'
+      }
+    });
+
   } catch (err) {
-    console.error('Admin firebase login error:', err);
-    res.status(500).json({ message: 'Server error during login' });
+    console.error('Admin login error:', err);
+    res.status(500).json({ success: false, message: 'Server error during login' });
   }
 });
+
+// Remove all Firebase/Google login routes to prevent confusion
+// These are no longer needed as we use direct backend auth.
 
 // GET: Dashboard Statistics (Protected - Admin only)
 router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res) => {
@@ -603,7 +613,7 @@ router.get('/deploy-check', (req, res) => {
   res.json({
     success: true,
     status: "Latest",
-    message: "Admin routes are fully updated with Google Login support.",
+    message: "Admin routes are fully updated with direct Email/Password support.",
     timestamp: new Date().toISOString()
   });
 });
