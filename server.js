@@ -26,120 +26,32 @@ const paymentRoutes = require('./routes/payment'); // Import the new payment pac
 // Initialize Express app
 const app = express();
 
-// CORS Configuration
-const allowedOrigins = [
-  'http://localhost:3000', // Local development
-  'http://127.0.0.1:3000', // Alternative localhost
-  'https://saloon-booking-system-frontend-web-eight.vercel.app', // Your actual Vercel URL
-  'https://saloon-booking-system-frontend-web-v2.vercel.app', // Alternative domain pattern
-  'https://vercel.app', // Any Vercel subdomain
-  'https://saloon-booking-system-frontend-web-git-main-saloon-booking-system-slt.vercel.app' // Git branch deployments
-];
-
-// Add production frontend URL from environment variable
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
-
-// CORS Configuration - More permissive for production
+// CORS Configuration - Super simple for debugging
 const corsOptions = {
-  origin: function (origin, callback) {
-    console.log(' CORS Request from origin:', origin);
-
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      console.log(' No origin - allowing request');
-      return callback(null, true);
-    }
-
-    // For production - be more permissive with Vercel domains
-    if (process.env.NODE_ENV === 'production') {
-      // Allow any Vercel app domain
-      if (origin.includes('vercel.app') ||
-        origin.includes('saloon-booking-system') ||
-        origin.includes('localhost')) {
-        console.log(' Production: Allowed domain - allowing request');
-        return callback(null, true);
-      }
-    }
-
-    // Check if origin is in allowed list
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'https://saloon-booking-system-frontend-web-eight.vercel.app',
-      'https://saloon-booking-system-frontend-web-v2.vercel.app',
-      'https://vercel.app',
-      process.env.FRONTEND_URL
-    ].filter(Boolean);
-
-    if (allowedOrigins.includes(origin)) {
-      console.log(' Origin in allowed list - allowing request');
-      return callback(null, true);
-    }
-
-    // For development - allow any localhost
-    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-      console.log(' Local development - allowing request');
-      return callback(null, true);
-    }
-
-    console.log(' CORS blocked origin:', origin);
-    console.log(' Allowed origins:', allowedOrigins);
-
-    // In production, be more lenient to avoid blocking legitimate requests
-    if (process.env.NODE_ENV === 'production') {
-      console.log('️ Production mode: Allowing request anyway');
-      return callback(null, true);
-    }
-
-    return callback(new Error(`CORS policy violation: Origin ${origin} not allowed`));
-  },
-  credentials: true, // Allow credentials for authentication
+  origin: true, // Allow all origins for debugging
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with', 'Access-Control-Allow-Origin'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
   optionsSuccessStatus: 200
 };
 
 // Middleware
 app.use(cors(corsOptions));
 
-// EMERGENCY: Ultra-permissive CORS if needed
-// Uncomment the next 4 lines if deployment still has CORS issues
+// Request logging for debugging
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  console.log(`📝 ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('Headers:', {
+    'content-type': req.headers['content-type'],
+    'origin': req.headers.origin,
+    'user-agent': req.headers['user-agent']?.substring(0, 50) + '...'
+  });
   next();
 });
 
-// Fallback CORS headers for production
-app.use((req, res, next) => {
-  // Set CORS headers manually as fallback
-  const origin = req.headers.origin;
-  if (origin && (
-    origin.includes('vercel.app') ||
-    origin.includes('saloon-booking-system') ||
-    origin.includes('localhost') ||
-    process.env.NODE_ENV === 'production'
-  )) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-requested-with');
-
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-    return;
-  }
-
-  next();
-});
+// Request parsing middleware (consolidated)
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Add explicit OPTIONS handling for debugging
 app.options('*', (req, res) => {
@@ -150,10 +62,6 @@ app.options('*', (req, res) => {
   });
   res.sendStatus(200);
 });
-
-app.use(express.json());
-app.use(express.json({ limit: "10mb" })); // handle JSON
-app.use(express.urlencoded({ extended: true, limit: "10mb" })); // handle form data
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -272,7 +180,7 @@ process.on('SIGTERM', () => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, () => {
   console.log(` Server is running at http://localhost:${PORT}`);
   if (process.env.NODE_ENV === 'production') {
     console.log(` Production server running on port ${PORT}`);
