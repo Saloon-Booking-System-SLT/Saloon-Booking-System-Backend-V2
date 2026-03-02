@@ -26,12 +26,17 @@ const paymentRoutes = require('./routes/payment'); // Import the new payment pac
 // Initialize Express app
 const app = express();
 
-// CORS Configuration - Super simple for debugging
+// CORS Configuration - Allow specific origins
 const corsOptions = {
-  origin: true, // Allow all origins for debugging
+  origin: [
+    'https://saloon-booking-system-frontend-web-eight.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://localhost:3000'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with', 'X-Requested-With'],
   optionsSuccessStatus: 200
 };
 
@@ -55,11 +60,18 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Add explicit OPTIONS handling for debugging
 app.options('*', (req, res) => {
-  console.log(' OPTIONS preflight request:', {
+  console.log('🔀 OPTIONS preflight request:', {
     origin: req.headers.origin,
     method: req.headers['access-control-request-method'],
     headers: req.headers['access-control-request-headers']
   });
+  
+  // Set CORS headers explicitly for OPTIONS requests
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-requested-with');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   res.sendStatus(200);
 });
 
