@@ -627,4 +627,14 @@ router.get('/payments', async (req, res) => {
   }
 });
 
+// GET: Deployment verification (Temporary)
+router.get('/deploy-check', (req, res) => {
+  res.json({
+    success: true,
+    status: "Latest",
+    message: "Admin routes are fully updated with Google Login support.",
+    timestamp: new Date().toISOString()
+  });
+});
+
 module.exports = router;
