@@ -72,8 +72,66 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Remove all Firebase/Google login routes to prevent confusion
-// These are no longer needed as we use direct backend auth.
+// Firebase Admin Login
+router.post('/firebase-login', async (req, res) => {
+  const { name, email, photoURL } = req.body;
+
+  try {
+    // Check if admin exists with this email
+    let admin = await Admin.findOne({ email });
+    
+    if (!admin) {
+      // For Firebase auth, we only allow specific admin emails
+      // You can modify this list as needed
+      const allowedAdminEmails = [
+        'admin@saloonbooking.lk',
+        'ojitharajapaksha1@gmail.com', // Add your Firebase admin email here
+        // Add more admin emails as needed
+      ];
+
+      if (!allowedAdminEmails.includes(email)) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Access denied. This email is not authorized for admin access.' 
+        });
+      }
+
+      // Create new admin for Firebase authenticated user
+      admin = new Admin({
+        name: name || 'Firebase Admin',
+        email: email,
+        password: 'firebase_auth', // Placeholder since Firebase handles auth
+        role: 'admin'
+      });
+      await admin.save();
+    }
+
+    // Generate JWT token
+    const token = generateToken({
+      userId: admin._id,
+      email: admin.email,
+      role: 'admin',
+      username: admin.name
+    });
+
+    return res.json({
+      success: true,
+      message: 'Firebase admin login successful',
+      token,
+      admin: {
+        id: admin._id,
+        username: admin.name,
+        email: admin.email,
+        role: 'admin',
+        photoURL: photoURL
+      }
+    });
+
+  } catch (err) {
+    console.error('Firebase admin login error:', err);
+    res.status(500).json({ success: false, message: 'Server error during Firebase authentication' });
+  }
+});
 
 // GET: Dashboard Statistics (Protected - Admin only)
 router.get('/dashboard/stats', authenticateToken, requireAdmin, async (req, res) => {
