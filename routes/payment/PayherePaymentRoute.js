@@ -76,7 +76,7 @@ router.post('/initiate', async (req, res) => {
         });
 
     } catch (err) {
- console.error('PayHere Initiation Error:', err);
+        console.error('PayHere Initiation Error:', err);
         res.status(500).json({
             success: false,
             error: 'Failed to initiate PayHere payment',
@@ -87,7 +87,7 @@ router.post('/initiate', async (req, res) => {
 
 // PayHere Webhook Notification
 router.post('/notify', express.urlencoded({ extended: true }), async (req, res) => {
- console.log(' PayHere Webhook Received:', req.body);
+    console.log(' PayHere Webhook Received:', req.body);
 
     try {
         const notification = req.body;
@@ -95,7 +95,7 @@ router.post('/notify', express.urlencoded({ extended: true }), async (req, res) 
         // 1. Verify Signature
         const isValid = payHereService.verifySignature(notification);
         if (!isValid) {
- console.warn('️ Invalid PayHere Signature');
+            console.warn('️ Invalid PayHere Signature');
             return res.status(400).send('Invalid Signature');
         }
 
@@ -109,7 +109,7 @@ router.post('/notify', express.urlencoded({ extended: true }), async (req, res) 
         const payment = await Payment.findOne({ appointmentId: order_id });
 
         if (!payment) {
- console.error(` Payment record not found for Order ID: ${order_id}`);
+            console.error(` Payment record not found for Order ID: ${order_id}`);
             return res.status(200).send('Payment not found');
         }
 
@@ -124,17 +124,45 @@ router.post('/notify', express.urlencoded({ extended: true }), async (req, res) 
 
         await payment.save();
 
- console.log(` Payment updated for Order ${order_id}: ${newStatus}`);
+        console.log(` Payment updated for Order ${order_id}: ${newStatus}`);
 
         // 5. Update Appointment Status if payment succeeded
         if (newStatus === 'succeeded') {
             const Appointment = require('../../models/Appointment');
-            const appointment = await Appointment.findById(order_id);
-            
+            const appointment = await Appointment.findById(order_id).populate('salonId');
+
             if (appointment) {
                 appointment.status = 'completed';
                 await appointment.save();
- console.log(` Appointment ${order_id} marked as completed`);
+                console.log(` Appointment ${order_id} marked as completed`);
+
+                // Send Confirmation Email
+                try {
+                    const notificationService = require('../../services/notificationService');
+
+                    let serviceName = 'Salon Service';
+                    if (appointment.services && appointment.services.length > 0) {
+                        serviceName = appointment.services.map(s => s.name).join(', ');
+                    } else if (appointment.isGroupBooking) {
+                        serviceName = 'Group Booking';
+                    }
+
+                    await notificationService.sendAppointmentConfirmation({
+                        customerEmail: appointment.user?.email,
+                        customerPhone: appointment.user?.phone || '',
+                        customerName: appointment.user?.name || 'Customer',
+                        salonName: appointment.salonId ? appointment.salonId.name : 'Salon',
+                        serviceName: serviceName,
+                        date: appointment.date || 'Scheduled Date',
+                        time: appointment.startTime || '',
+                        totalAmount: payment.amount,
+                        appointmentId: appointment._id.toString().slice(-8).toUpperCase()
+                    });
+
+                    console.log(` Confirmation email sent for ${order_id}`);
+                } catch (emailError) {
+                    console.error(` Failed to send confirmation email for ${order_id}:`, emailError);
+                }
             }
         }
 
@@ -142,7 +170,7 @@ router.post('/notify', express.urlencoded({ extended: true }), async (req, res) 
         res.status(200).send('OK');
 
     } catch (err) {
- console.error(' PayHere Webhook Error:', err);
+        console.error(' PayHere Webhook Error:', err);
         res.status(500).send('Internal Server Error');
     }
 });
