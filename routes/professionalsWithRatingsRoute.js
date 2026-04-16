@@ -14,8 +14,9 @@ router.get('/:salonId/with-ratings', async (req, res) => {
  console.log(` Fetching professionals with ratings for salon: ${salonId}`);
     const startTime = Date.now();
 
-    // Get all professionals for this salon
+    // Get all professionals for this salon, excluding the heavy 'certificate' base64 string
     const professionals = await Professional.find({ salonId })
+      .select('-certificate')
       .lean();
 
     if (!professionals.length) {
