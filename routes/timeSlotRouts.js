@@ -68,4 +68,23 @@ router.patch("/:id/book", async (req, res) => {
   }
 });
 
+// delete a specific time slot by ObjectId
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deletedSlot = await TimeSlot.findByIdAndDelete(
+      new mongoose.Types.ObjectId(id)
+    );
+
+    if (!deletedSlot) {
+      return res.status(404).json({ error: "Time slot not found" });
+    }
+
+    return res.json({deletedSlot});
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to delete time slot" });
+  }
+});
+
 module.exports = router;
