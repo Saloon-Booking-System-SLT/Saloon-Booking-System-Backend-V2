@@ -17,11 +17,11 @@ const upload = multer({ storage: multer.memoryStorage() }).fields([
  */
 router.post("/", upload, async (req, res) => {
   try {
-    const { name, service, services, serviceAvailability, salonId, gender, available } = req.body;
+    const { name, service, services, serviceAvailability, salonId, gender, available, imageUrl } = req.body;
 
     const image = req.files?.image
       ? req.files.image[0].buffer.toString("base64")
-      : null;
+      : imageUrl;
     const certificate = req.files?.certificate
       ? req.files.certificate[0].buffer.toString("base64")
       : null;
