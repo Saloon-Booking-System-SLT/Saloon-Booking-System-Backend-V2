@@ -1,4 +1,5 @@
 const emailService = require('./emailService');
+const smsService = require('./smsService');
 const twilio = require('twilio');
 const sgMail = require('@sendgrid/mail'); // SendGrid API
 
@@ -42,7 +43,7 @@ const createEmailTransporter = () => {
   }
 };
 
-// Twilio client configuration
+// Twilio client configuration (DEPRECATED - using Mobitel SMS instead)
 const createTwilioClient = () => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -57,7 +58,7 @@ const createTwilioClient = () => {
     }
   }
   
- console.log(' Twilio not configured - SMS notifications disabled');
+ console.log(' Twilio not configured - using Mobitel SMS instead');
   return null;
 };
 
@@ -1825,12 +1826,22 @@ class NotificationService {
  console.log(' Professional Email Service Status:', emailService.getStatus());
 
     try {
+      // Initialize Mobitel SMS Service (primary)
+      this.smsService = smsService;
+      if (this.smsService && this.smsService.getStatus().configured) {
+ console.log(' Mobitel SMS Service initialized:', this.smsService.getStatus());
+      } else {
+ console.log('⚠️ Mobitel SMS Service not configured');
+      }
+      
+      // Keep Twilio for backward compatibility (not used)
       this.twilioClient = createTwilioClient();
       if (this.twilioClient) {
- console.log(' Twilio service initialized');
+ console.log(' Twilio service initialized (legacy)');
       }
     } catch (error) {
- console.error(' Twilio service initialization failed:', error);
+ console.error(' SMS service initialization failed:', error);
+      this.smsService = null;
       this.twilioClient = null;
     }
   }
@@ -1932,25 +1943,37 @@ class NotificationService {
     }
   }
 
-  // Send SMS notification
+  // Send SMS notification via Mobitel
   async sendSMS(to, template, data) {
-    if (!this.twilioClient) {
- console.log('️ Twilio not configured, skipping SMS');
-      return { success: false, error: 'Twilio not configured' };
+    if (!this.smsService || !this.smsService.isConfigured) {
+ console.log('⚠️ Mobitel SMS Service not configured, skipping SMS');
+      return { success: false, error: 'SMS service not configured' };
     }
 
     try {
       const message = smsTemplates[template](data);
       
  console.log(` Sending ${template} SMS to: ${to}`);
-      const result = await this.twilioClient.messages.create({
-        body: message,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: to
-      });
-
- console.log(' SMS sent successfully:', result.sid);
-      return { success: true, sid: result.sid };
+ console.log(` Message: ${message.substring(0, 50)}...`);
+       
+      // Use templated SMS method from Mobitel service
+      const result = await this.smsService.sendTemplatedSMS(to, template, data);
+      
+      if (result.success) {
+ console.log(' SMS sent successfully via Mobitel:', {
+          to: to,
+          template: template,
+          service: 'Mobitel SMS'
+        });
+      } else {
+ console.error(' SMS sending failed:', {
+          to: to,
+          template: template,
+          error: result.error
+        });
+      }
+      
+      return result;
     } catch (error) {
  console.error(' SMS sending failed:', error);
       return { success: false, error: error.message };
