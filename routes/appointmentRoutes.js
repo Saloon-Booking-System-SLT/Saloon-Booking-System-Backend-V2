@@ -7,6 +7,7 @@ const Professional = require("../models/Professional");
 const Salon = require("../models/Salon");
 const dayjs = require("dayjs");
 const notificationService = require("../services/notificationService");
+const { sendSMS, buildAppointmentMessage } = require("../services/smsService");
 
 // 🔧 FIXED: Handle undefined/empty duration strings
 const durationToMinutes = (durationStr) => {
@@ -306,6 +307,28 @@ router.post("/", async (req, res) => {
             serviceName: notificationData.serviceName,
             totalAmount: notificationData.totalAmount
           });
+//**********************************start of sms intergration************
+// Send SMS (non-blocking)
+if (phone) {
+  const smsMessage = buildAppointmentMessage({
+    name: appointment.user.name || name || 'Guest',
+    salonName: salon.name,
+    date: dayjs(appointment.date).format('MMMM DD'),
+    time: appointment.startTime
+  });
+
+  sendSMS({
+    to: phone,
+    message: smsMessage
+  }).then(result => {
+    if (!result.success) {
+      console.log("SMS failed:", result);
+    }
+  });
+}
+
+//*******************end of sms intergration****************************
+
 
           // Send confirmation to customer
  console.log(' Calling sendAppointmentConfirmation...');
