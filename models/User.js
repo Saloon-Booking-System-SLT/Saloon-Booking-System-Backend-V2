@@ -63,6 +63,14 @@ const userSchema = new mongoose.Schema({
   },
   emailVerificationToken: String,
   emailVerificationExpires: Date,
+  // Phone verification
+  phoneVerified: {
+    type: Boolean,
+    default: false
+  },
+  // OTP for registration
+  registrationOTP: String,
+  registrationOTPExpires: Date,
   // Account status
   isActive: {
     type: Boolean,
