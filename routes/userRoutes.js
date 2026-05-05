@@ -7,16 +7,16 @@ const notificationService = require('../services/notificationService');
 const upload = require('../middleware/uploadServiceImage'); // Reusing existing upload configuration
 const crypto = require('crypto');
 
-// Email/Password Registration
+// Email/Password Registration (Modified for OTP)
 router.post('/register', async (req, res) => {
   try {
     const { name, email, phone, password, confirmPassword } = req.body;
 
     // Validation
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !phone) {
       return res.status(400).json({
         success: false,
-        message: 'Name, email, and password are required'
+        message: 'Name, email, phone, and password are required'
       });
     }
 
@@ -38,18 +38,45 @@ router.post('/register', async (req, res) => {
     const existingUser = await User.findOne({
       $or: [
         { email },
-        { phone: phone || '' }
+        { phone }
       ]
     });
 
     if (existingUser) {
+      // If user exists but is not active, we can allow updating data and resending OTP
+      if (!existingUser.isActive) {
+        existingUser.name = name;
+        existingUser.password = password;
+        
+        // Generate OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        existingUser.registrationOTP = otp;
+        existingUser.registrationOTPExpires = Date.now() + 600000; // 10 minutes
+        
+        await existingUser.save();
+        
+        // Send OTP
+        await notificationService.sendRegistrationOTP({
+          customerEmail: email,
+          customerPhone: phone,
+          customerName: name,
+          otp
+        });
+        
+        return res.status(200).json({
+          success: true,
+          message: 'OTP resent to your email and phone.',
+          needsVerification: true
+        });
+      }
+
       if (existingUser.email === email) {
         return res.status(400).json({
           success: false,
           message: 'Email is already registered'
         });
       }
-      if (phone && existingUser.phone === phone) {
+      if (existingUser.phone === phone) {
         return res.status(400).json({
           success: false,
           message: 'Phone number is already registered'
@@ -57,22 +84,103 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    // Create new user
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Create new user in unverified state
     const user = new User({
       name,
       email,
-      phone: phone || '',
+      phone,
       password,
       authMethod: 'email',
       role: 'customer',
       emailVerified: false,
-      isActive: true,
+      phoneVerified: false,
+      isActive: false, // User is not active until verified
+      registrationOTP: otp,
+      registrationOTPExpires: Date.now() + 600000, // 10 minutes
       createdAt: new Date(),
       updatedAt: new Date()
     });
 
-    // Generate email verification token
-    const verificationToken = user.generateEmailVerificationToken();
+    await user.save();
+
+    // Send OTP via email and SMS
+    await notificationService.sendRegistrationOTP({
+      customerEmail: email,
+      customerPhone: phone,
+      customerName: name,
+      otp
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'OTP sent to your email and phone. Please verify to complete registration.',
+      needsVerification: true
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during registration',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Verify Registration OTP
+router.post('/verify-registration-otp', async (req, res) => {
+  try {
+    const { email, phone, otp } = req.body;
+
+    if (!otp || (!email && !phone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'OTP and identifier (email or phone) are required'
+      });
+    }
+
+    // Find user
+    const query = email ? { email } : { phone };
+    const user = await User.findOne(query);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account is already verified'
+      });
+    }
+
+    // Check if OTP matches and is not expired
+    if (user.registrationOTP !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid verification code'
+      });
+    }
+
+    if (user.registrationOTPExpires < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code has expired'
+      });
+    }
+
+    // Activate user
+    user.isActive = true;
+    user.emailVerified = true;
+    user.phoneVerified = true;
+    user.registrationOTP = undefined;
+    user.registrationOTPExpires = undefined;
     await user.save();
 
     // Generate JWT token
@@ -83,53 +191,85 @@ router.post('/register', async (req, res) => {
       name: user.name
     });
 
-    // Send verification email (optional)
-    if (process.env.SEND_VERIFICATION_EMAIL === 'true') {
-      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
-
-      await notificationService.sendVerificationEmail({
-        customerEmail: user.email,
-        customerName: user.name,
-        verificationUrl
-      });
-    }
-
-    res.status(201).json({
+    res.json({
       success: true,
       token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        phone: user.phone || '',
-        photoURL: user.photoURL || '',
+        phone: user.phone,
         role: user.role,
-        gender: user.gender || '',
-        address: user.address || [],
-        favorites: user.favorites || [],
-        emailVerified: user.emailVerified,
         authMethod: user.authMethod,
+        emailVerified: user.emailVerified,
+        phoneVerified: user.phoneVerified,
         createdAt: user.createdAt
       },
-      message: 'Registration successful. Please check your email for verification.'
+      message: 'Registration verified successfully'
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('OTP Verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during verification'
+    });
+  }
+});
 
-    // Handle duplicate key errors
-    if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0];
+// Resend Registration OTP
+router.post('/resend-registration-otp', async (req, res) => {
+  try {
+    const { email, phone } = req.body;
+
+    if (!email && !phone) {
       return res.status(400).json({
         success: false,
-        message: `${field === 'email' ? 'Email' : 'Phone number'} is already registered`
+        message: 'Email or phone is required'
       });
     }
 
+    const query = email ? { email } : { phone };
+    const user = await User.findOne(query);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account is already verified'
+      });
+    }
+
+    // Generate new OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.registrationOTP = otp;
+    user.registrationOTPExpires = Date.now() + 600000;
+    await user.save();
+
+    // Send OTP
+    await notificationService.sendRegistrationOTP({
+      customerEmail: user.email,
+      customerPhone: user.phone,
+      customerName: user.name,
+      otp
+    });
+
+    res.json({
+      success: true,
+      message: 'Verification code resent successfully'
+    });
+
+  } catch (error) {
+    console.error('Resend OTP error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during registration',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Server error resending code'
     });
   }
 });

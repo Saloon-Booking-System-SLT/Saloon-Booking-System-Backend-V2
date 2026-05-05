@@ -64,6 +64,30 @@ const createTwilioClient = () => {
 
 // Email templates
 const emailTemplates = {
+  registrationOTP: (data) => {
+    const { customerName, otp } = data;
+    return {
+      subject: `Verification Code: ${otp} - Salon Booking System`,
+      html: `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #667eea;">Salon Booking System</h1>
+          </div>
+          <h2 style="color: #2c3e50;">Verify Your Account</h2>
+          <p>Hi ${customerName},</p>
+          <p>Thank you for joining us! To complete your registration, please use the following verification code:</p>
+          <div style="background: #f8fbff; padding: 20px; text-align: center; border-radius: 8px; margin: 30px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #1a237e;">${otp}</span>
+          </div>
+          <p>This code will expire in 10 minutes. If you didn't request this, please ignore this email.</p>
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; text-align: center;">
+            &copy; 2026 Salon Booking System. All rights reserved.
+          </div>
+        </div>
+      `,
+      text: `Hi ${customerName}, your verification code is: ${otp}. It will expire in 10 minutes.`
+    };
+  },
   appointmentConfirmation: (data) => {
     const { customerName, salonName, serviceName, date, time, totalAmount, appointmentId } = data;
     return {
@@ -2218,6 +2242,36 @@ class NotificationService {
     }
     
     return { success: false, error: 'Owner email not provided' };
+  }
+
+  // Send registration OTP to both email and phone
+  async sendRegistrationOTP(userData) {
+    const { customerEmail, customerPhone, customerName, otp } = userData;
+    const results = { email: null, sms: null };
+
+    // Send email OTP
+    if (customerEmail) {
+      results.email = await this.sendEmail(customerEmail, 'registrationOTP', {
+        customerName,
+        otp
+      });
+    }
+
+    // Send SMS OTP
+    if (customerPhone) {
+      // Create a direct SMS message instead of using a template if not defined in smsService
+      const message = `Hi ${customerName}, your Salon Booking verification code is: ${otp}. Valid for 10 minutes.`;
+      
+      // Check if smsService has a sendSMS method that takes a direct message
+      try {
+        results.sms = await smsService.sendSMS(customerPhone, message);
+      } catch (error) {
+        console.error('Failed to send SMS OTP:', error);
+        results.sms = { success: false, error: error.message };
+      }
+    }
+
+    return results;
   }
 
   // Send appointment completion notification (email + SMS)

@@ -26,29 +26,33 @@ const smsTemplates = {
 
 class SMSService {
   constructor() {
+    // Standard V3 Endpoint as per user documentation
     this.apiUrl = process.env.SMS_API_URL || 'https://msmsenterpriseapi.mobitel.lk/EnterpriseSMSV3/esmsproxyURL.php';
     this.username = process.env.SMS_USERNAME;
     this.password = process.env.SMS_PASSWORD;
-    this.alias = process.env.SMS_ALIAS || 'SalonBooking';
-    this.messageType = parseInt(process.env.SMS_MESSAGE_TYPE || '0'); // 0 = Non-Promotional, 1 = Promotional
+    this.alias = process.env.SMS_ALIAS || 'TEST';
+    this.messageType = parseInt(process.env.SMS_MESSAGE_TYPE || '0');
     this.isConfigured = !!(this.username && this.password);
     
     if (this.isConfigured) {
-      console.log('✅ SMS Service (Mobitel) initialized successfully');
+      console.log(`[SMS Service] Mobitel Doc-Spec initialized successfully`);
+      console.log(`   User: ${this.username}`);
+      console.log(`   Alias: ${this.alias}`);
+      console.log(`   URL: ${this.apiUrl}`);
     } else {
-      console.log('⚠️ SMS Service (Mobitel) not configured - SMS notifications disabled');
+      console.log('[SMS Service] Mobitel Doc-Spec not configured - SMS notifications disabled');
     }
   }
 
   /**
-   * Send SMS via Mobitel API
-   * @param {string} to - Recipient phone number (Sri Lankan format: 07XXXXXXXX)
+   * Send SMS via Mobitel API matching exact documentation spec
+   * @param {string} to - Recipient phone number
    * @param {string} message - SMS message text
    * @returns {Promise<Object>} Response from API
    */
   async sendSMS(to, message) {
     if (!this.isConfigured) {
-      console.log('⚠️ SMS Service not configured - skipping SMS');
+      console.log('[SMS Service] not configured - skipping SMS');
       return { success: false, error: 'SMS service not configured' };
     }
 
@@ -57,48 +61,54 @@ class SMSService {
         return { success: false, error: 'Missing recipient number or message' };
       }
 
-      // Validate Sri Lankan phone number format
-      if (!this.validatePhoneNumber(to)) {
-        console.warn(`⚠️ Invalid phone number format: ${to}`);
-        return { success: false, error: 'Invalid phone number format' };
+      // Format phone number to 07XXXXXXXX as per documentation example
+      let formattedTo = to.replace(/[^0-9]/g, '');
+      if (formattedTo.startsWith('94')) {
+        formattedTo = '0' + formattedTo.substring(2);
+      } else if (!formattedTo.startsWith('0')) {
+        formattedTo = '0' + formattedTo;
       }
 
-      // Ensure message is within 160 characters (SMS limit)
+      // Ensure message is within 160 characters
       const truncatedMessage = this.truncateMessage(message);
 
-      console.log(`📱 Sending SMS to ${to}...`);
-      console.log(`Message preview: ${truncatedMessage.substring(0, 50)}...`);
-
+      console.log(`[SMS Service] Sending SMS to ${formattedTo} using exact documentation spec...`);
+      
+      // Mobitel Documentation "Request Body" structure:
       const payload = {
         username: this.username,
         password: this.password,
         from: this.alias,
-        to: to,
+        to: formattedTo,
         text: truncatedMessage,
-        messageType: this.messageType
+        messageType: this.messageType,
+        mesageType: this.messageType // Include the typo from documentation just in case
       };
 
       const response = await axios.post(this.apiUrl, payload, {
         headers: {
           'Content-Type': 'application/json'
         },
-        timeout: 10000 // 10 second timeout
+        timeout: 15000
       });
 
-      // Check response code from Mobitel API
-      const responseCode = response.status || response.data?.code;
+      console.log('[SMS Service] Mobitel API Response Status:', response.status);
+      console.log('[SMS Service] Mobitel API Response Data:', JSON.stringify(response.data));
+
+      const responseData = response.data;
+      const responseCode = responseData?.code || parseInt(responseData) || response.status;
       
-      if (response.status === 200 || responseCode === 200) {
-        console.log(`✅ SMS sent successfully to ${to}`);
+      if (responseCode === 200 || response.status === 200) {
+        console.log(`[SMS Service] SMS sent successfully to ${formattedTo}`);
         return { 
           success: true, 
-          to: to,
-          messageLength: truncatedMessage.length,
-          service: 'Mobitel SMS'
+          to: formattedTo,
+          service: 'Mobitel SMS Doc-Spec',
+          apiResponse: responseData
         };
       } else {
         const errorMsg = this.getErrorMessage(responseCode);
-        console.error(`❌ SMS API error: ${errorMsg}`);
+        console.error(`[SMS Service] API error: ${errorMsg} (Code: ${responseCode})`);
         return { 
           success: false, 
           error: errorMsg,
@@ -149,20 +159,19 @@ class SMSService {
   formatPhoneNumber(phone) {
     if (!phone) return null;
     
-    const cleaned = phone.replace(/[-\s]/g, '');
+    // Remove any non-numeric characters
+    const cleaned = phone.replace(/\D/g, '');
     
-    // If starts with +94, replace with 0
-    if (cleaned.startsWith('+94')) {
-      return '0' + cleaned.substring(3);
+    // Sri Lankan mobile patterns: should end with 9 digits starting with 7 or 6
+    // e.g. 771234567 or 671234567
+    const match = cleaned.match(/([67][0-9]{8})$/);
+    
+    if (match) {
+      // Prepend 94 for standard format
+      return '94' + match[1];
     }
     
-    // If already starts with 0, return as is
-    if (cleaned.startsWith('0')) {
-      return cleaned;
-    }
-    
-    // Otherwise, add 0
-    return '0' + cleaned;
+    return null;
   }
 
   /**
@@ -266,10 +275,10 @@ class SMSService {
   getStatus() {
     return {
       initialized: this.isConfigured,
-      service: 'Mobitel SMS',
+      service: 'Mobitel SMS V3',
       configured: this.isConfigured,
       alias: this.alias,
-      messageType: this.messageType === 0 ? 'Non-Promotional' : 'Promotional',
+      messageType: (this.messageType === '0' || this.messageType === 0) ? 'Non-Promotional' : 'Promotional',
       apiUrl: this.apiUrl.substring(0, 50) + '...'
     };
   }
