@@ -16,29 +16,38 @@ class PayHereService {
             throw new Error('PayHere merchant ID or secret not configured');
         }
 
-        const formattedAmount = Number(amount).toFixed(2); // Ensure 2 decimal places
+        // 1. Ensure orderId is a clean string (especially if it's a MongoDB ObjectId)
+        const cleanOrderId = String(orderId).trim();
+        
+        // 2. Ensure amount is exactly 2 decimal places with NO commas
+        const formattedAmount = Number(amount).toFixed(2); 
+
+        // 3. Generate Secret Hash: strtoupper(md5(merchant_secret))
         const secretHash = crypto.createHash('md5')
             .update(this.merchantSecret)
             .digest('hex')
             .toUpperCase();
 
-        const dataToHash = `${this.merchantId}${orderId}${formattedAmount}${currency}${secretHash}`;
+        // 4. Construct the final string to hash
+        // Formula: merchant_id + order_id + amount + currency + secretHash
+        const dataToHash = `${this.merchantId}${cleanOrderId}${formattedAmount}${currency}${secretHash}`;
         
-        console.log('Hash generation debug:', {
-            merchantId: this.merchantId,
-            orderId,
-            formattedAmount,
-            currency,
-            secretHashLength: secretHash.length,
-            dataToHash
-        });
-
+        // 5. Generate Final Hash
         const finalHash = crypto.createHash('md5')
             .update(dataToHash)
             .digest('hex')
             .toUpperCase();
             
-        console.log('Generated hash:', finalHash);
+        console.log('--- PAYHERE HASH DEBUG ---');
+        console.log('Merchant ID:', this.merchantId);
+        console.log('Order ID:', cleanOrderId);
+        console.log('Amount:', formattedAmount);
+        console.log('Currency:', currency);
+        console.log('Secret Hash:', secretHash);
+        console.log('Full Data String:', dataToHash);
+        console.log('Final Generated Hash:', finalHash);
+        console.log('--------------------------');
+
         return finalHash;
     }
 
