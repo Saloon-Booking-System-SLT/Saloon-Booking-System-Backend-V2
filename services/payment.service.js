@@ -3,8 +3,8 @@ const payhereConfig = require('../config/payhere');
 
 class PayHereService {
     constructor() {
-        this.merchantId = payhereConfig.merchantId;
-        this.merchantSecret = payhereConfig.merchantSecret;
+        this.merchantId = (payhereConfig.merchantId || '').trim();
+        this.merchantSecret = (payhereConfig.merchantSecret || '').trim();
     }
 
     /**
