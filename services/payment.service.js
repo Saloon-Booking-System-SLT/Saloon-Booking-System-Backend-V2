@@ -16,21 +16,24 @@ class PayHereService {
             throw new Error('PayHere merchant ID or secret not configured');
         }
 
-        // 1. Ensure orderId is a clean string (especially if it's a MongoDB ObjectId)
+        // 1. Ensure orderId is a clean string
         const cleanOrderId = String(orderId).trim();
         
-        // 2. Ensure amount is exactly 2 decimal places with NO commas
+        // 2. Ensure amount is exactly 2 decimal places
         const formattedAmount = Number(amount).toFixed(2); 
 
-        // 3. Generate Secret Hash: strtoupper(md5(merchant_secret))
+        // 3. Generate Secret Hash
         const secretHash = crypto.createHash('md5')
             .update(this.merchantSecret)
             .digest('hex')
             .toUpperCase();
 
-        // 4. Construct the final string to hash
-        // Formula: merchant_id + order_id + amount + currency + secretHash
-        const dataToHash = `${this.merchantId}${cleanOrderId}${formattedAmount}${currency}${secretHash}`;
+        // 4. Construct the final string
+        const dataToHash = String(this.merchantId).trim() + 
+                           cleanOrderId + 
+                           formattedAmount + 
+                           String(currency).trim() + 
+                           secretHash;
         
         // 5. Generate Final Hash
         const finalHash = crypto.createHash('md5')
