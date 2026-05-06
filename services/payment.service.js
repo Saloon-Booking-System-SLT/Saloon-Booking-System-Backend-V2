@@ -16,26 +16,35 @@ class PayHereService {
             throw new Error('PayHere merchant ID or secret not configured');
         }
 
-        // 1. Ensure orderId is a clean string
+        // 1. Detect and decode Base64 secret if necessary
+        let secretToUse = this.merchantSecret;
+        if (this.merchantSecret.endsWith('==') || /^[A-Za-z0-9+/]+={0,2}$/.test(this.merchantSecret)) {
+            try {
+                const decoded = Buffer.from(this.merchantSecret, 'base64').toString('utf-8');
+                // Only use decoded if it looks like a valid PayHere secret (40 chars)
+                if (decoded.length >= 32) {
+                    secretToUse = decoded;
+                    console.log('Detected Base64 secret, using decoded version for hashing');
+                }
+            } catch (e) {
+                console.warn('Secret looks like Base64 but decoding failed, using original');
+            }
+        }
+
         const cleanOrderId = String(orderId).trim();
-        
-        // 2. Ensure amount is exactly 2 decimal places
         const formattedAmount = Number(amount).toFixed(2); 
 
-        // 3. Generate Secret Hash
         const secretHash = crypto.createHash('md5')
-            .update(this.merchantSecret)
+            .update(secretToUse)
             .digest('hex')
             .toUpperCase();
 
-        // 4. Construct the final string
         const dataToHash = String(this.merchantId).trim() + 
                            cleanOrderId + 
                            formattedAmount + 
                            String(currency).trim() + 
                            secretHash;
         
-        // 5. Generate Final Hash
         const finalHash = crypto.createHash('md5')
             .update(dataToHash)
             .digest('hex')
@@ -45,7 +54,7 @@ class PayHereService {
         console.log('Merchant ID:', this.merchantId);
         console.log('Order ID:', cleanOrderId);
         console.log('Amount:', formattedAmount);
-        console.log('Currency:', currency);
+        console.log('Secret Used:', secretToUse === this.merchantSecret ? 'Original' : 'Decoded');
         console.log('Secret Hash:', secretHash);
         console.log('Full Data String:', dataToHash);
         console.log('Final Generated Hash:', finalHash);
