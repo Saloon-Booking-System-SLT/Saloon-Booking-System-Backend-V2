@@ -1,4 +1,5 @@
 const axios = require('axios');
+const https = require('https');
 
 // SMS Templates
 const smsTemplates = {
@@ -51,6 +52,9 @@ class SMSService {
    * @returns {Promise<Object>} Response from API
    */
   async sendSMS(to, message) {
+    console.log(`--- SMS SERVICE: sendSMS called ---`);
+    console.log(`    To: ${to}`);
+    console.log(`    Message: ${message.substring(0, 20)}...`);
     if (!this.isConfigured) {
       console.log('[SMS Service] not configured - skipping SMS');
       return { success: false, error: 'SMS service not configured' };
@@ -61,49 +65,58 @@ class SMSService {
         return { success: false, error: 'Missing recipient number or message' };
       }
 
-      // Format phone number to 07XXXXXXXX as per documentation example
-      let formattedTo = to.replace(/[^0-9]/g, '');
-      if (formattedTo.startsWith('94')) {
-        formattedTo = '0' + formattedTo.substring(2);
-      } else if (!formattedTo.startsWith('0')) {
-        formattedTo = '0' + formattedTo;
-      }
+      // Format phone numbers to 07XXXXXXXX as per documentation example
+      // Support comma-separated recipients for bulk sending via a single API call
+      const formattedTo = to.toString().split(',').map(num => {
+        let cleaned = num.replace(/[^0-9]/g, '');
+        if (cleaned.startsWith('94')) {
+          return '0' + cleaned.substring(2);
+        } else if (!cleaned.startsWith('0') && cleaned.length > 0) {
+          return '0' + cleaned;
+        }
+        return cleaned;
+      }).filter(n => n.length > 0).join(',');
 
-      // Ensure message is within 160 characters
+      // Ensure message is within limits (160 characters as per code 161)
       const truncatedMessage = this.truncateMessage(message);
 
-      console.log(`[SMS Service] Sending SMS to ${formattedTo} using exact documentation spec...`);
+      console.log(`[SMS Service] Sending Multilang SMS to ${formattedTo}...`);
       
-      // Mobitel Documentation "Request Body" structure:
+      // Mobitel Multilanguage "Request Body" structure as per user spec:
       const payload = {
         username: this.username,
         password: this.password,
-        from: this.alias,
-        to: formattedTo,
-        text: truncatedMessage,
-        messageType: this.messageType,
-        mesageType: this.messageType // Include the typo from documentation just in case
+        alias: this.alias,
+        recipient: formattedTo,
+        message: truncatedMessage,
+        mesageType: this.messageType
       };
 
+      console.log(`[SMS Service] Payload:`, JSON.stringify(payload));
+      
       const response = await axios.post(this.apiUrl, payload, {
         headers: {
           'Content-Type': 'application/json'
         },
-        timeout: 15000
+        timeout: 20000,
+        httpsAgent: new https.Agent({ 
+          rejectUnauthorized: false // Bypass potential SSL issues with Mobitel API
+        })
       });
 
       console.log('[SMS Service] Mobitel API Response Status:', response.status);
       console.log('[SMS Service] Mobitel API Response Data:', JSON.stringify(response.data));
 
       const responseData = response.data;
-      const responseCode = responseData?.code || parseInt(responseData) || response.status;
+      // The API might return a raw string like "200" or a JSON object
+      const responseCode = responseData?.code || (typeof responseData === 'string' ? parseInt(responseData) : null) || response.status;
       
-      if (responseCode === 200 || response.status === 200) {
+      if (responseCode === 200 || responseData === "200" || responseData === 200) {
         console.log(`[SMS Service] SMS sent successfully to ${formattedTo}`);
         return { 
           success: true, 
           to: formattedTo,
-          service: 'Mobitel SMS Doc-Spec',
+          service: 'Mobitel Multilang',
           apiResponse: responseData
         };
       } else {
@@ -112,12 +125,19 @@ class SMSService {
         return { 
           success: false, 
           error: errorMsg,
-          code: responseCode
+          code: responseCode,
+          apiResponse: responseData
         };
       }
 
     } catch (error) {
       console.error(`❌ SMS sending failed: ${error.message}`);
+      if (error.response) {
+        console.error(' [SMS Service] API Error Response Status:', error.response.status);
+        console.error(' [SMS Service] API Error Response Data:', JSON.stringify(error.response.data));
+      } else if (error.request) {
+        console.error(' [SMS Service] No response received from API. Request details:', error.config?.url);
+      }
       
       let suggestion = '';
       if (error.code === 'ETIMEDOUT') {

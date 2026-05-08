@@ -2258,6 +2258,7 @@ class NotificationService {
     }
 
     // Send SMS OTP
+    console.log(`[Notification Service] Attempting to send OTP SMS to: ${customerPhone}`);
     if (customerPhone) {
       // Create a direct SMS message instead of using a template if not defined in smsService
       const message = `Hi ${customerName}, your Salon Booking verification code is: ${otp}. Valid for 10 minutes.`;
