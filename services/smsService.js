@@ -52,9 +52,6 @@ class SMSService {
    * @returns {Promise<Object>} Response from API
    */
   async sendSMS(to, message) {
-    console.log(`--- SMS SERVICE: sendSMS called ---`);
-    console.log(`    To: ${to}`);
-    console.log(`    Message: ${message.substring(0, 20)}...`);
     if (!this.isConfigured) {
       console.log('[SMS Service] not configured - skipping SMS');
       return { success: false, error: 'SMS service not configured' };
@@ -92,8 +89,6 @@ class SMSService {
         mesageType: this.messageType
       };
 
-      console.log(`[SMS Service] Payload:`, JSON.stringify(payload));
-      
       const response = await axios.post(this.apiUrl, payload, {
         headers: {
           'Content-Type': 'application/json'

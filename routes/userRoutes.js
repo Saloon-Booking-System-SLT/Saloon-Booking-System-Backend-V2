@@ -9,8 +9,6 @@ const crypto = require('crypto');
 
 // Email/Password Registration (Modified for OTP)
 router.post('/register', async (req, res) => {
-  console.log('--- NEW REGISTRATION REQUEST RECEIVED ---');
-  console.log('Body:', JSON.stringify({ ...req.body, password: '***' }));
   try {
     const { name, email, phone, password, confirmPassword } = req.body;
 
