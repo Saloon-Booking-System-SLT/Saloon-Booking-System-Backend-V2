@@ -47,14 +47,14 @@ router.post('/register', async (req, res) => {
       if (!existingUser.isActive) {
         existingUser.name = name;
         existingUser.password = password;
-        
+
         // Generate OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         existingUser.registrationOTP = otp;
         existingUser.registrationOTPExpires = Date.now() + 600000; // 10 minutes
-        
+
         await existingUser.save();
-        
+
         // Send OTP
         await notificationService.sendRegistrationOTP({
           customerEmail: email,
@@ -62,7 +62,7 @@ router.post('/register', async (req, res) => {
           customerName: name,
           otp
         });
-        
+
         return res.status(200).json({
           success: true,
           message: 'OTP resent to your email and phone.',
@@ -397,7 +397,16 @@ router.post('/google-login', async (req, res) => {
       }
 
       user.name = name || user.name;
-      user.photoURL = photoURL || user.photoURL;
+
+      // ✅ Only update photoURL from Google if the user has NOT set a custom photo.
+      // A custom photo is identified by being a Cloudinary URL (res.cloudinary.com).
+      // This prevents Google login from overwriting the user's uploaded profile picture
+      // every time they log in — especially important after app reinstall.
+      const hasCustomPhoto = user.photoURL && user.photoURL.includes('res.cloudinary.com');
+      if (!hasCustomPhoto) {
+        user.photoURL = photoURL || user.photoURL;
+      }
+
       user.authMethod = 'google';
       user.lastLogin = new Date();
       await user.save();
@@ -604,6 +613,67 @@ router.put('/:id', authenticateToken, requireCustomer, upload.single('image'), a
     });
   }
 });
+
+// Delete profile picture from Cloudinary (protected)
+// Called by mobile app when user removes their profile picture.
+// Uses the MOBILE_CLOUDINARY_* credentials (dr4ejckm0) — NOT the main backend cloud (duiclrgeg).
+router.delete('/profile-picture', authenticateToken, requireCustomer, async (req, res) => {
+  try {
+    const { publicId } = req.body;
+
+    if (!publicId) {
+      return res.status(400).json({
+        success: false,
+        message: 'publicId is required'
+      });
+    }
+
+    const cloudName = process.env.MOBILE_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.MOBILE_CLOUDINARY_API_KEY;
+    const apiSecret = process.env.MOBILE_CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret ||
+        apiKey === 'YOUR_API_KEY_HERE' || apiSecret === 'YOUR_API_SECRET_HERE') {
+      console.warn('⚠️ MOBILE_CLOUDINARY_* credentials not configured in .env — skipping Cloudinary delete');
+      // Still clear the photoURL from DB so UI is updated
+      await User.findByIdAndUpdate(req.user.userId, { photoURL: '' });
+      return res.json({
+        success: true,
+        message: 'Profile picture cleared (Cloudinary credentials not configured)',
+        cloudinaryResult: 'skipped'
+      });
+    }
+
+    // Use the MOBILE Cloudinary cloud (dr4ejckm0) for profile pictures
+    const cloudinary = require('cloudinary').v2;
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+    });
+
+    const result = await cloudinary.uploader.destroy(publicId);
+    console.log(`🗑️ Cloudinary delete result for "${publicId}":`, result);
+
+    // Clear the photoURL on the user document
+    await User.findByIdAndUpdate(req.user.userId, { photoURL: '' });
+
+    res.json({
+      success: true,
+      message: 'Profile picture deleted successfully',
+      cloudinaryResult: result.result
+    });
+
+  } catch (error) {
+    console.error('Delete profile picture error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete profile picture',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 
 // Change password (protected)
 router.post('/change-password', authenticateToken, async (req, res) => {
