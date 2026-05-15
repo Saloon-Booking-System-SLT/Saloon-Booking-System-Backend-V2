@@ -47,14 +47,14 @@ router.post('/register', async (req, res) => {
       if (!existingUser.isActive) {
         existingUser.name = name;
         existingUser.password = password;
-        
+
         // Generate OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         existingUser.registrationOTP = otp;
         existingUser.registrationOTPExpires = Date.now() + 600000; // 10 minutes
-        
+
         await existingUser.save();
-        
+
         // Send OTP
         await notificationService.sendRegistrationOTP({
           customerEmail: email,
@@ -62,7 +62,7 @@ router.post('/register', async (req, res) => {
           customerName: name,
           otp
         });
-        
+
         return res.status(200).json({
           success: true,
           message: 'OTP resent to your email and phone.',
@@ -397,7 +397,16 @@ router.post('/google-login', async (req, res) => {
       }
 
       user.name = name || user.name;
-      user.photoURL = photoURL || user.photoURL;
+
+      // ✅ Only update photoURL from Google if the user has NOT set a custom photo.
+      // A custom photo is identified by being a Cloudinary URL (res.cloudinary.com).
+      // This prevents Google login from overwriting the user's uploaded profile picture
+      // every time they log in — especially important after app reinstall.
+      const hasCustomPhoto = user.photoURL && user.photoURL.includes('res.cloudinary.com');
+      if (!hasCustomPhoto) {
+        user.photoURL = photoURL || user.photoURL;
+      }
+
       user.authMethod = 'google';
       user.lastLogin = new Date();
       await user.save();
