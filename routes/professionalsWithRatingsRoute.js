@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
 const Professional = require('../models/Professional');
 const Feedback = require('../models/feedbackModel');
 
@@ -15,10 +14,9 @@ router.get('/:salonId/with-ratings', async (req, res) => {
  console.log(` Fetching professionals with ratings for salon: ${salonId}`);
     const startTime = Date.now();
 
-    // Get all professionals for this salon, excluding the heavy 'certificate' and 'image' base64 strings
-    // Huge base64 images (e.g. 15MB camera photos) cause 10+ second delays when parsing JSON in Flutter
+    // Get all professionals for this salon, excluding the heavy 'certificate' base64 string
     const professionals = await Professional.find({ salonId })
-      .select('-certificate -image')
+      .select('-certificate')
       .lean();
 
     if (!professionals.length) {
@@ -28,9 +26,10 @@ router.get('/:salonId/with-ratings', async (req, res) => {
  console.log(` Found ${professionals.length} professionals`);
 
     // Get all feedback for these professionals in ONE query
-    const professionalIds = professionals.map(p => new mongoose.Types.ObjectId(p._id.toString()));
+    const professionalIds = professionals.map(p => p._id);
     const feedbacks = await Feedback.find({ 
-      professionalId: { $in: professionalIds }
+      professionalId: { $in: professionalIds },
+      status: 'approved'
     })
       .select('professionalId rating comment createdAt')
       .lean();
