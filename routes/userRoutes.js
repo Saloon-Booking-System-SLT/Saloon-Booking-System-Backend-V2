@@ -1144,4 +1144,69 @@ router.post('/deactivate', authenticateToken, async (req, res) => {
   }
 });
 
+// Permanent account deletion (hard delete)
+router.delete('/delete-account', authenticateToken, requireCustomer, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const { email, phone } = user;
+
+    console.log(`🗑️ Processing permanent account deletion for user ID: ${userId}, Email: ${email}, Phone: ${phone}`);
+
+    // 1. Delete user's feedbacks (by email)
+    if (email) {
+      const Feedback = require('../models/feedbackModel');
+      const feedbackDeleteResult = await Feedback.deleteMany({ userEmail: email });
+      console.log(`🗑️ Deleted feedbacks: ${feedbackDeleteResult.deletedCount}`);
+    }
+
+    // 2. Delete user's appointments (by email or phone)
+    const orConditions = [];
+    if (email) orConditions.push({ "user.email": email });
+    if (phone) orConditions.push({ "user.phone": phone });
+    
+    if (orConditions.length > 0) {
+      const Appointment = require('../models/Appointment');
+      const appointmentDeleteResult = await Appointment.deleteMany({ $or: orConditions });
+      console.log(`🗑️ Deleted appointments: ${appointmentDeleteResult.deletedCount}`);
+    }
+
+    // 3. Delete family bookings (by email or phone)
+    const familyOrConditions = [];
+    if (email) familyOrConditions.push({ "customerInfo.email": email });
+    if (phone) familyOrConditions.push({ "customerInfo.phone": phone });
+
+    if (familyOrConditions.length > 0) {
+      const FamilyBooking = require('../models/familybooking');
+      const familyBookingDeleteResult = await FamilyBooking.deleteMany({ $or: familyOrConditions });
+      console.log(`🗑️ Deleted family bookings: ${familyBookingDeleteResult.deletedCount}`);
+    }
+
+    // 4. Delete main user document
+    await User.findByIdAndDelete(userId);
+    console.log(`🗑️ Deleted main user document for ID: ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Account and all related information deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting account',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;

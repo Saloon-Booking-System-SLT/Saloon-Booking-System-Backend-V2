@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Professional = require('../models/Professional');
 const Feedback = require('../models/feedbackModel');
 
@@ -11,11 +12,13 @@ const Feedback = require('../models/feedbackModel');
 router.get('/:salonId/with-ratings', async (req, res) => {
   try {
     const { salonId } = req.params;
- console.log(` Fetching professionals with ratings for salon: ${salonId}`);
+    console.log(` Fetching professionals with ratings for salon: ${salonId}`);
     const startTime = Date.now();
 
-    // Get all professionals for this salon, excluding the heavy 'certificate' base64 string
+    // Get all professionals for this salon, excluding the heavy 'certificate' and 'image' base64 strings
+    // Huge base64 images (e.g. 15MB camera photos) cause 10+ second delays when parsing JSON in Flutter
     const professionals = await Professional.find({ salonId })
+      //.select('-certificate -image')
       .select('-certificate')
       .lean();
 
@@ -23,18 +26,17 @@ router.get('/:salonId/with-ratings', async (req, res) => {
       return res.json([]);
     }
 
- console.log(` Found ${professionals.length} professionals`);
+    console.log(` Found ${professionals.length} professionals`);
 
     // Get all feedback for these professionals in ONE query
-    const professionalIds = professionals.map(p => p._id);
-    const feedbacks = await Feedback.find({ 
-      professionalId: { $in: professionalIds },
-      status: 'approved'
+    const professionalIds = professionals.map(p => new mongoose.Types.ObjectId(p._id.toString()));
+    const feedbacks = await Feedback.find({
+      professionalId: { $in: professionalIds }
     })
       .select('professionalId rating comment createdAt')
       .lean();
 
- console.log(` Found ${feedbacks.length} feedbacks`);
+    console.log(` Found ${feedbacks.length} feedbacks`);
 
     // Create a map of professionalId -> feedbacks array
     const feedbackMap = {};
@@ -52,7 +54,7 @@ router.get('/:salonId/with-ratings', async (req, res) => {
       const avgRating = proFeedbacks.length > 0
         ? (proFeedbacks.reduce((sum, f) => sum + f.rating, 0) / proFeedbacks.length).toFixed(1)
         : '0';
-      
+
       return {
         ...pro,
         avgRating: parseFloat(avgRating),
@@ -65,15 +67,15 @@ router.get('/:salonId/with-ratings', async (req, res) => {
     professionalsWithRatings.sort((a, b) => b.avgRating - a.avgRating);
 
     const endTime = Date.now();
- console.log(` Completed in ${endTime - startTime}ms`);
+    console.log(` Completed in ${endTime - startTime}ms`);
 
     res.json(professionalsWithRatings);
 
   } catch (error) {
- console.error(' Error fetching professionals with ratings:', error);
-    res.status(500).json({ 
+    console.error(' Error fetching professionals with ratings:', error);
+    res.status(500).json({
       message: 'Failed to fetch professionals with ratings',
-      error: error.message 
+      error: error.message
     });
   }
 });
