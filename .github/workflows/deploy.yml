@@ -45,9 +45,14 @@ jobs:
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Rsync and PM2 Reload
+        env:
+          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
         run: |
-          # Sync files excluding specific directories
-          rsync -az --delete --exclude 'node_modules' --exclude '.git' --exclude '.env' -e "ssh -p ${{ secrets.SSH_PORT }}" ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/tmp_deploy/"
+          # Create .env file safely without quote stripping
+          echo "$BACKEND_ENV" > .env
+
+          # Sync files excluding specific directories (but include .env)
+          rsync -az --delete --exclude 'node_modules' --exclude '.git' -e "ssh -p ${{ secrets.SSH_PORT }}" ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/tmp_deploy/"
 
           # Execute SSH commands to update, restart, and verify health
           ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "
@@ -57,7 +62,7 @@ jobs:
             cp -rf tmp_deploy/* . 2>/dev/null || true
             cp -rf tmp_deploy/.* . 2>/dev/null || true
             rm -rf tmp_deploy
-            printf '%s\n' \"${{ secrets.BACKEND_ENV }}\" > .env
+
             npm install --omit=dev
             pm2 reload salon-backend || pm2 start server.js --name salon-backend
             pm2 save
