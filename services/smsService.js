@@ -83,17 +83,17 @@ class SMSService {
       const payload = {
         username: this.username,
         password: this.password,
-        from: this.alias,
-        to: formattedTo,
-        text: truncatedMessage,
+        alias: this.alias,
+        recipient: formattedTo,
+        message: truncatedMessage,
         mesageType: this.messageType
       };
 
       console.log('[SMS Service] Request Payload (Redacted):', {
         username: payload.username,
-        from: payload.from,
-        to: payload.to,
-        textLength: payload.text?.length,
+        alias: payload.alias,
+        recipient: payload.recipient,
+        messageLength: payload.message?.length,
         mesageType: payload.mesageType
       });
 
