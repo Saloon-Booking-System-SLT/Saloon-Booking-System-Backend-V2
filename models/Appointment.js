@@ -28,7 +28,10 @@ const appointmentSchema = new mongoose.Schema({
   memberInfo: {
     name: String,
     category: String
-  }
+  },
+  // Payment tracking
+  paymentStatus: { type: String, enum: ['unpaid', 'paid', 'refunded'], default: 'unpaid' },
+  paymentReference: { type: String, default: null },  // PayHere payment_id
 }, {
   timestamps: true // Automatically adds createdAt and updatedAt fields
 });

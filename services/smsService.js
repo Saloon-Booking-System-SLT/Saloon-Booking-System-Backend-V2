@@ -83,11 +83,19 @@ class SMSService {
       const payload = {
         username: this.username,
         password: this.password,
-        alias: this.alias,
-        recipient: formattedTo,
-        message: truncatedMessage,
+        from: this.alias,
+        to: formattedTo,
+        text: truncatedMessage,
         mesageType: this.messageType
       };
+
+      console.log('[SMS Service] Request Payload (Redacted):', {
+        username: payload.username,
+        from: payload.from,
+        to: payload.to,
+        textLength: payload.text?.length,
+        mesageType: payload.mesageType
+      });
 
       const response = await axios.post(this.apiUrl, payload, {
         headers: {
@@ -103,10 +111,26 @@ class SMSService {
       console.log('[SMS Service] Mobitel API Response Data:', JSON.stringify(response.data));
 
       const responseData = response.data;
-      // The API might return a raw string like "200" or a JSON object
-      const responseCode = responseData?.code || (typeof responseData === 'string' ? parseInt(responseData) : null) || response.status;
+      // Mobitel API returns success code 200 on success, or error code (like 160) on failure
+      let responseCode = null;
+      if (responseData !== null && responseData !== undefined) {
+        if (typeof responseData === 'object') {
+          if (responseData.resultcode !== undefined) {
+            responseCode = parseInt(responseData.resultcode);
+          } else if (responseData.code !== undefined) {
+            responseCode = parseInt(responseData.code);
+          }
+        } else if (typeof responseData === 'string') {
+          responseCode = parseInt(responseData);
+        } else if (typeof responseData === 'number') {
+          responseCode = responseData;
+        }
+      }
+      if (responseCode === null || isNaN(responseCode)) {
+        responseCode = response.status;
+      }
       
-      if (responseCode === 200 || responseData === "200" || responseData === 200) {
+      if (responseCode === 200) {
         console.log(`[SMS Service] SMS sent successfully to ${formattedTo}`);
         return { 
           success: true, 

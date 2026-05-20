@@ -14,8 +14,7 @@ const paymentSchema = new mongoose.Schema({
     default: 'payhere'
   },
   appointmentId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Appointment',
+    type: String,   // Can be a MongoDB ObjectId string OR an ORDER-timestamp string
     required: true
   },
   amount: {
