@@ -206,7 +206,10 @@ router.post('/notify', express.urlencoded({ extended: true }), async (req, res) 
                     }
 
                     // Link the payment record to the first created appointment for reference
-                    payment.metadata.createdAppointmentIds = createdAppointments.map(a => a._id.toString());
+                    payment.metadata = {
+                        ...payment.metadata,
+                        createdAppointmentIds: createdAppointments.map(a => a._id.toString())
+                    };
                     await payment.save();
 
                     // Send notifications
