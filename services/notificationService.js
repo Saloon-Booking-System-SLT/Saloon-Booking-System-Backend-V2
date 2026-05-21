@@ -2419,14 +2419,15 @@ class NotificationService {
       tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowDateStr = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD format
       
-      // Import Appointment model
+      // Import models
       const Appointment = require('../models/Appointment');
+      const Salon = require('../models/Salon');
       
-      // Find appointments for tomorrow
+      // Find appointments for tomorrow and populate salonId to get salon details
       const tomorrowAppointments = await Appointment.find({
         date: tomorrowDateStr,
         status: { $nin: ['cancelled', 'completed'] }
-      });
+      }).populate('salonId', 'name phone');
       
  console.log(` Found ${tomorrowAppointments.length} appointments for tomorrow`);
       
@@ -2434,15 +2435,27 @@ class NotificationService {
       
       for (const appointment of tomorrowAppointments) {
         try {
+          // Get salon name from populated salonId, fallback gracefully
+          const salonName = appointment.salonId?.name || 'Your Salon';
+          const salonPhone = appointment.salonId?.phone || null;
+
+          // Get service name from services array (first service name, or join all)
+          const serviceName = appointment.services && appointment.services.length > 0
+            ? appointment.services.map(s => s.name).join(', ')
+            : 'Your Service';
+
+          // Use startTime field (the Appointment model uses startTime, not time)
+          const time = appointment.startTime || 'your scheduled time';
+
           const reminderData = {
             customerEmail: appointment.user.email,
             customerPhone: appointment.user.phone,
-            customerName: appointment.user.name,
-            salonName: appointment.salonName,
-            serviceName: appointment.serviceName,
+            customerName: appointment.user.name || 'Valued Customer',
+            salonName: salonName,
+            serviceName: serviceName,
             date: appointment.date,
-            time: appointment.time,
-            salonPhone: appointment.salonPhone
+            time: time,
+            salonPhone: salonPhone
           };
           
           const result = await this.sendAppointmentReminder(reminderData);
