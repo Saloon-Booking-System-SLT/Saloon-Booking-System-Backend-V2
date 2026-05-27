@@ -1808,6 +1808,295 @@ const emailTemplates = {
         ${salonName}
       `
     };
+  },
+  appointmentReschedule: (data) => {
+    const { customerName, salonName, serviceName, date, time, totalAmount, appointmentId } = data;
+    return {
+      subject: `🔄 Appointment Rescheduled - ${salonName}`,
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Appointment Rescheduled</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                    line-height: 1.6; 
+                    color: #2c3e50; 
+                    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                .email-container { 
+                    max-width: 650px; 
+                    margin: 40px auto; 
+                    background: #ffffff; 
+                    border-radius: 16px; 
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                }
+                .header { 
+                    background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); 
+                    color: #ffffff; 
+                    padding: 40px 30px; 
+                    text-align: center;
+                    position: relative;
+                }
+                .header h1 { 
+                    font-size: 28px; 
+                    font-weight: 600; 
+                    margin-bottom: 8px;
+                    position: relative;
+                    z-index: 1;
+                }
+                .booking-id { 
+                    background: rgba(255,255,255,0.15); 
+                    padding: 8px 16px; 
+                    border-radius: 25px; 
+                    font-weight: 500; 
+                    letter-spacing: 1px;
+                    position: relative;
+                    z-index: 1;
+                }
+                .content { padding: 40px 30px; }
+                .greeting { 
+                    font-size: 18px; 
+                    color: #2c3e50; 
+                    margin-bottom: 16px;
+                    font-weight: 500;
+                }
+                .intro-text { 
+                    color: #546e7a; 
+                    margin-bottom: 30px; 
+                    font-size: 16px;
+                }
+                .appointment-card { 
+                    background: linear-gradient(135deg, #f8fbff 0%, #f1f8ff 100%); 
+                    border: 1px solid #e3f2fd;
+                    padding: 30px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                    box-shadow: 0 4px 20px rgba(0,180,219,0.08);
+                }
+                .card-title { 
+                    font-size: 20px; 
+                    font-weight: 600; 
+                    color: #0083b0; 
+                    margin-bottom: 20px;
+                    text-align: center;
+                }
+                .salon-name {
+                    background: linear-gradient(135deg, #00b4db, #0083b0);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                    font-size: 24px;
+                    font-weight: 700;
+                    text-align: center;
+                    margin-bottom: 20px;
+                    color: #0083b0; /* Fallback for non-webkit browsers */
+                }
+                .detail-grid { 
+                    display: grid; 
+                    grid-template-columns: 1fr 1fr;
+                    gap: 16px;
+                    margin-bottom: 20px;
+                }
+                .detail-item { 
+                    padding: 16px;
+                    background: #ffffff;
+                    border-radius: 8px;
+                    border-left: 4px solid #00b4db;
+                }
+                .detail-label { 
+                    font-size: 12px; 
+                    text-transform: uppercase; 
+                    letter-spacing: 1px; 
+                    color: #78909c; 
+                    margin-bottom: 4px;
+                    font-weight: 600;
+                }
+                .detail-value { 
+                    font-size: 16px; 
+                    font-weight: 600; 
+                    color: #263238;
+                }
+                .amount-highlight {
+                    background: linear-gradient(135deg, #4caf50, #66bb6a);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                    font-size: 18px;
+                    font-weight: 700;
+                    color: #4caf50; /* Fallback */
+                }
+                .info-section { 
+                    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); 
+                    border: 1px solid #ffcc02;
+                    padding: 25px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                    box-shadow: 0 4px 20px rgba(255,193,7,0.08);
+                }
+                .info-title { 
+                    font-size: 18px; 
+                    font-weight: 600; 
+                    color: #e65100; 
+                    margin-bottom: 16px;
+                }
+                .info-list { 
+                    list-style: none; 
+                    padding: 0;
+                }
+                .info-list li { 
+                    color: #bf360c; 
+                    margin: 12px 0; 
+                    padding-left: 20px;
+                    position: relative;
+                    line-height: 1.5;
+                }
+                .info-list li::before {
+                    content: '✓';
+                    position: absolute;
+                    left: 0;
+                    color: #ff8f00;
+                    font-weight: bold;
+                }
+                .contact-info { 
+                    background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%); 
+                    padding: 20px; 
+                    border-radius: 12px; 
+                    margin: 25px 0;
+                    text-align: center;
+                    border: 1px solid #c8e6c9;
+                }
+                .footer { 
+                    background: #f8f9fa; 
+                    padding: 30px; 
+                    text-align: center; 
+                    border-top: 1px solid #e9ecef;
+                }
+                .footer-text { 
+                    color: #6c757d; 
+                    font-size: 14px; 
+                    line-height: 1.5;
+                    margin-bottom: 8px;
+                }
+                .company-signature {
+                    margin-top: 20px;
+                    padding-top: 20px;
+                    border-top: 1px solid #dee2e6;
+                }
+                .company-name {
+                    font-weight: 600;
+                    color: #495057;
+                }
+                @media (max-width: 600px) {
+                    .email-container { margin: 20px; }
+                    .content { padding: 30px 20px; }
+                    .detail-grid { grid-template-columns: 1fr; }
+                    .header { padding: 30px 20px; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <div class="header">
+                    <h1>Appointment Rescheduled</h1>
+                    <div class="booking-id">Booking ID: ${appointmentId}</div>
+                </div>
+                
+                <div class="content">
+                    <div class="greeting">Dear ${customerName},</div>
+                    <div class="intro-text">
+                        Your appointment has been successfully rescheduled. We look forward to seeing you at your updated time.
+                    </div>
+
+                    <div class="salon-name">${salonName}</div>
+                    
+                    <div class="appointment-card">
+                        <div class="card-title">Updated Appointment Details</div>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <div class="detail-label">Service</div>
+                                <div class="detail-value">${serviceName}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">New Date</div>
+                                <div class="detail-value">${date}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">New Time</div>
+                                <div class="detail-value">${time}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Total Amount</div>
+                                <div class="detail-value amount-highlight">LKR ${totalAmount}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <div class="info-title">Important Information</div>
+                        <ul class="info-list">
+                            <li>Please arrive 10 minutes before your updated appointment time</li>
+                            <li>If you need to reschedule again, please let us know at least 24 hours in advance</li>
+                            <li>Our team is looking forward to providing you with an amazing experience</li>
+                        </ul>
+                    </div>
+
+                    <div class="contact-info">
+                        <strong>Need to make further changes or have questions?</strong><br>
+                        Please contact the salon directly for any assistance.
+                    </div>
+
+                    <div style="text-align: center; margin-top: 30px; color: #546e7a; font-size: 16px;">
+                        Thank you for choosing <strong>${salonName}</strong>!
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <div class="footer-text">
+                        This is an automated rescheduling notification from the Salon Booking System.
+                    </div>
+                    <div class="footer-text">
+                        Please do not reply to this email. For support, contact the salon directly.
+                    </div>
+                    <div class="company-signature">
+                        <div class="company-name">Salon Booking System</div>
+                        <div style="color: #868e96; font-size: 12px; margin-top: 5px;">
+                            Professional salon management solution
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+      `,
+      text: `
+        Appointment Rescheduled!
+        
+        Dear ${customerName},
+        
+        Your appointment has been successfully rescheduled. Here are your updated details:
+        
+        Salon: ${salonName}
+        Service: ${serviceName}
+        New Date: ${date}
+        New Time: ${time}
+        Total Amount: LKR ${totalAmount}
+        Booking ID: ${appointmentId}
+        
+        Please arrive 10 minutes early. If you need to make changes, contact us at least 24 hours in advance.
+        
+        Thank you for choosing ${salonName}!
+        
+        - Salon Booking System
+      `
+    };
   }
 };
 
@@ -1841,6 +2130,11 @@ const smsTemplates = {
   appointmentCancellation: (data) => {
     const { customerName, salonName, serviceName, date, appointmentId } = data;
     return `❌ Appointment Cancelled: Hi ${customerName}, your ${serviceName} at ${salonName} on ${date} has been cancelled. We apologize for the inconvenience. ID: ${appointmentId}`;
+  },
+
+  appointmentReschedule: (data) => {
+    const { customerName, salonName, date, time, appointmentId } = data;
+    return `🔄 Appointment Rescheduled!\n\nHi ${customerName}, your appointment at ${salonName} has been successfully rescheduled to ${date} at ${time}.\n\nBooking ID: ${appointmentId}\n\nThank you! - Salon Booking System`;
   }
 };
 
@@ -2352,6 +2646,49 @@ class NotificationService {
         salonName,
         serviceName,
         date,
+        appointmentId
+      });
+    }
+
+    return results;
+  }
+
+  // Send appointment reschedule notification (email + SMS)
+  async sendAppointmentReschedule(appointmentData) {
+    const {
+      customerEmail,
+      customerPhone,
+      customerName,
+      salonName,
+      serviceName,
+      date,
+      time,
+      totalAmount,
+      appointmentId
+    } = appointmentData;
+
+    const results = { email: null, sms: null };
+
+    // Send email notification
+    if (customerEmail) {
+      results.email = await this.sendEmail(customerEmail, 'appointmentReschedule', {
+        customerName,
+        salonName,
+        serviceName,
+        date,
+        time,
+        totalAmount,
+        appointmentId
+      });
+    }
+
+    // Send SMS notification
+    if (customerPhone) {
+      results.sms = await this.sendSMS(customerPhone, 'appointmentReschedule', {
+        customerName,
+        salonName,
+        date,
+        time,
         appointmentId
       });
     }

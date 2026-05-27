@@ -22,6 +22,10 @@ const smsTemplates = {
   appointmentCompletion: (data) => {
     const { customerName, salonName } = data;
     return `Hi ${customerName}, thank you for choosing ${salonName}! We hope you enjoyed our service. Visit us again soon! Reply STOP to unsubscribe.`;
+  },
+  appointmentReschedule: (data) => {
+    const { customerName, salonName, date, time, appointmentId } = data;
+    return `Hi ${customerName}! Your appointment at ${salonName} has been rescheduled to ${date} at ${time}. ID: ${appointmentId}. Reply STOP to unsubscribe.`;
   }
 };
 

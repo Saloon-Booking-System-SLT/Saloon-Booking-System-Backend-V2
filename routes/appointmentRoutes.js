@@ -587,6 +587,39 @@ router.patch("/:id/reschedule", async (req, res) => {
  console.log(` Booked ${bookResult.modifiedCount} new time slots`);
     }
 
+    // Send notifications for rescheduled appointment
+    try {
+      const salon = await Salon.findById(updatedAppointment.salonId);
+      if (salon) {
+        const serviceNames = updatedAppointment.services.map(s => s.name).filter(n => n).join(', ') || 'Service';
+        const totalAmount = updatedAppointment.services.reduce((sum, s) => sum + (s.price || 0), 0);
+
+        const notificationData = {
+          customerEmail: updatedAppointment.user?.email || oldAppointment.user?.email,
+          customerPhone: updatedAppointment.user?.phone || oldAppointment.user?.phone,
+          customerName: updatedAppointment.user?.name || oldAppointment.user?.name || 'Guest',
+          salonName: salon.name,
+          serviceName: serviceNames,
+          date: dayjs(updatedAppointment.date).format('MMMM DD, YYYY'),
+          time: updatedAppointment.startTime,
+          totalAmount: totalAmount,
+          appointmentId: updatedAppointment._id.toString().slice(-6).toUpperCase()
+        };
+
+        console.log('Sending reschedule notification...', {
+          email: notificationData.customerEmail,
+          phone: notificationData.customerPhone,
+          salonName: notificationData.salonName
+        });
+        const rescheduleResult = await notificationService.sendAppointmentReschedule(notificationData);
+        console.log('Reschedule notification result:', rescheduleResult);
+      } else {
+        console.warn('Salon not found for rescheduled appointment:', updatedAppointment.salonId);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send reschedule notification:', notificationError);
+    }
+
     res.json({
       success: true,
       updated: updatedAppointment,
