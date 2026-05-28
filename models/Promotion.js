@@ -4,7 +4,7 @@ const promotionSchema = new mongoose.Schema({
   salonId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Salon',
-    required: true
+    required: false
   },
   title: {
     type: String,

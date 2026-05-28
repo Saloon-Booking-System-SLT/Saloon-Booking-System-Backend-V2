@@ -9,19 +9,23 @@ const smsTemplates = {
   },
   appointmentReminder: (data) => {
     const { customerName, salonName, date, time } = data;
-    return `Reminder: Your appointment at ${salonName} is tomorrow at ${time}. See you then, ${customerName}!`;
+    return `Hi ${customerName}! Reminder: Your appointment at ${salonName} is tomorrow (${date}) at ${time}. See you then! Reply STOP to unsubscribe.`;
   },
   appointmentCancellation: (data) => {
     const { customerName, salonName } = data;
-    return `Hi ${customerName}, your appointment at ${salonName} has been cancelled. Please contact us to reschedule.`;
+    return `Hi ${customerName}, your appointment at ${salonName} has been cancelled. Please contact us to reschedule. Reply STOP to unsubscribe.`;
   },
   feedbackRequest: (data) => {
     const { customerName, salonName } = data;
-    return `Hi ${customerName}, thank you for visiting ${salonName}! We'd love your feedback. Please reply with your rating (1-5 stars).`;
+    return `Hi ${customerName}, thank you for visiting ${salonName}! We'd love your feedback. Please reply with your rating (1-5 stars). Reply STOP to unsubscribe.`;
   },
   appointmentCompletion: (data) => {
     const { customerName, salonName } = data;
-    return `Hi ${customerName}, thank you for choosing ${salonName}! We hope you enjoyed our service. Visit us again soon!`;
+    return `Hi ${customerName}, thank you for choosing ${salonName}! We hope you enjoyed our service. Visit us again soon! Reply STOP to unsubscribe.`;
+  },
+  appointmentReschedule: (data) => {
+    const { customerName, salonName, date, time, appointmentId } = data;
+    return `Hi ${customerName}! Your appointment at ${salonName} has been rescheduled to ${date} at ${time}. ID: ${appointmentId}. Reply STOP to unsubscribe.`;
   }
 };
 
@@ -79,22 +83,23 @@ class SMSService {
 
       console.log(`[SMS Service] Sending Multilang SMS to ${formattedTo}...`);
       
-      // Mobitel Multilanguage "Request Body" structure as per user spec:
+      // Mobitel API correct payload structure:
+      // { username, password, from (alias), to (recipient), text (message), mesageType }
       const payload = {
-        username: this.username,
-        password: this.password,
-        alias: this.alias,
-        recipient: formattedTo,
-        message: truncatedMessage,
+        username:   this.username,
+        password:   this.password,
+        from:       this.alias,
+        to:         formattedTo,
+        text:       truncatedMessage,
         mesageType: this.messageType
       };
 
       console.log('[SMS Service] Request Payload (Redacted):', {
-        username: payload.username,
-        alias: payload.alias,
-        recipient: payload.recipient,
-        messageLength: payload.message?.length,
-        mesageType: payload.mesageType
+        username:      payload.username,
+        from:          payload.from,
+        to:            payload.to,
+        messageLength: payload.text?.length,
+        mesageType:    payload.mesageType
       });
 
       const response = await axios.post(this.apiUrl, payload, {
