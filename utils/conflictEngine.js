@@ -124,6 +124,64 @@ function isSlotConflicting(appointments, proId, date, startTime, durationMins) {
   });
 }
 
+/**
+ * Find details of a conflict, specifically distinguishing between a fully booked slot 
+ * and an insufficient gap slot.
+ *
+ * @param {Object[]} appointments
+ * @param {string} proId
+ * @param {string} date
+ * @param {string} startTime
+ * @param {number} durationMins
+ * @returns {Object} { conflicting: boolean, insufficientGap: boolean, availableGapMins?: number, nextAppointmentTime?: string }
+ */
+function checkConflictDetails(appointments, proId, date, startTime, durationMins) {
+  // 1. Is the slot completely conflicting?
+  const conflicting = isSlotConflicting(appointments, proId, date, startTime, durationMins);
+  if (!conflicting) {
+    return { conflicting: false, insufficientGap: false };
+  }
+
+  // 2. Is the start time actually booked (busy at the first 30 minutes)?
+  // We use SLOT_STEP_MINS (30 min) as the minimum test
+  const isConflictingAtStart = isSlotConflicting(appointments, proId, date, startTime, 30);
+  if (isConflictingAtStart) {
+    // Actually booked
+    return { conflicting: true, insufficientGap: false };
+  }
+
+  // 3. Otherwise, it must be an insufficient gap conflict!
+  // Find the next appointment for this professional on this date that causes the conflict
+  const slotStartMins = timeToMins(startTime);
+  
+  // Get all active appointments for this pro on this date starting after the slot start time
+  const futureAppointments = appointments.filter((appt) => {
+    if (String(appt.professionalId) !== String(proId)) return false;
+    if (appt.date !== date) return false;
+    const activeStatuses = ["pending", "confirmed", "rescheduled"];
+    if (appt.status && !activeStatuses.includes(appt.status)) return false;
+    
+    return timeToMins(appt.startTime) > slotStartMins;
+  });
+
+  // Sort by start time ascending to find the immediate next appointment
+  futureAppointments.sort((a, b) => timeToMins(a.startTime) - timeToMins(b.startTime));
+
+  const nextAppt = futureAppointments[0];
+  if (nextAppt) {
+    const nextApptStartMins = timeToMins(nextAppt.startTime);
+    const availableGapMins = nextApptStartMins - slotStartMins;
+    return {
+      conflicting: true,
+      insufficientGap: true,
+      availableGapMins,
+      nextAppointmentTime: nextAppt.startTime,
+    };
+  }
+
+  return { conflicting: true, insufficientGap: false };
+}
+
 // ── Slot generation ───────────────────────────────────────────────
 
 /**
@@ -131,6 +189,9 @@ function isSlotConflicting(appointments, proId, date, startTime, durationMins) {
  * @property {string}  startTime    "HH:MM"
  * @property {string}  endTime      "HH:MM"
  * @property {boolean} conflicting  true = already booked, do not allow
+ * @property {boolean} insufficientGap
+ * @property {number}  availableGapMins
+ * @property {string}  nextAppointmentTime
  */
 
 /**
@@ -160,9 +221,16 @@ function getAvailableSlots(appointments, proId, date, durationMins, openTime, cl
   ) {
     const startTime   = minsToTime(t);
     const endTime     = minsToTime(t + durationMins);
-    const conflicting = isSlotConflicting(appointments, proId, date, startTime, durationMins);
+    const details = checkConflictDetails(appointments, proId, date, startTime, durationMins);
 
-    slots.push({ startTime, endTime, conflicting });
+    slots.push({
+      startTime,
+      endTime,
+      conflicting: details.conflicting,
+      insufficientGap: details.insufficientGap || false,
+      availableGapMins: details.availableGapMins || null,
+      nextAppointmentTime: details.nextAppointmentTime || null
+    });
   }
 
   return slots;
