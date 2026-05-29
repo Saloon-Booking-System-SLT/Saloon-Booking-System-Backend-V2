@@ -2,28 +2,49 @@ const express = require("express");
 const mongoose = require("mongoose");
 const router = express.Router();
 const Appointment = require("../models/Appointment");
-const TimeSlot = require("../models/TimeSlot");
 const Professional = require("../models/Professional");
 const Salon = require("../models/Salon");
 const dayjs = require("dayjs");
 const notificationService = require("../services/notificationService");
+const { isSlotConflicting, parseDurationMins } = require("../utils/conflictEngine");
 
 // 🔧 FIXED: Handle undefined/empty duration strings
 const durationToMinutes = (durationStr) => {
-  if (!durationStr || typeof durationStr !== 'string') {
- console.warn("️ Invalid duration string:", durationStr);
-    return 30; // Default to 30 minutes
+  if (typeof durationStr === "number" && !isNaN(durationStr)) return durationStr;
+  if (!durationStr) return 30;
+
+  const str = String(durationStr).toLowerCase().trim();
+
+  // Handle formats like "1h 30min", "1 hour 30 mins", "1h", "30 mins", "20min"
+  const hourRegex = /(\d+)\s*(?:hour|hr|h)s?/g;
+  const minRegex = /(\d+)\s*(?:min|m)s?/g;
+
+  let totalMins = 0;
+
+  // Extract hours
+  let hourMatch;
+  while ((hourMatch = hourRegex.exec(str)) !== null) {
+    totalMins += parseInt(hourMatch[1], 10) * 60;
   }
 
-  const parts = durationStr.split(" ");
-  let minutes = 0;
-  for (let i = 0; i < parts.length; i += 2) {
-    const val = parseInt(parts[i]);
-    const unit = parts[i + 1]?.toLowerCase() || ""; // 🔧 Added safe access
-    if (unit.includes("hour")) minutes += (isNaN(val) ? 0 : val) * 60;
-    else if (unit.includes("min")) minutes += isNaN(val) ? 0 : val;
+  // Extract minutes
+  let minMatch;
+  while ((minMatch = minRegex.exec(str)) !== null) {
+    totalMins += parseInt(minMatch[1], 10);
   }
-  return minutes || 30; // Default to 30 minutes if calculation fails
+
+  // Fallback: if no units were matched but a standalone number is present
+  if (totalMins === 0) {
+    const standaloneNum = parseInt(str.replace(/[^\d]/g, ""), 10);
+    if (!isNaN(standaloneNum) && standaloneNum > 0) {
+      if (str.includes("hour") || str.includes("h")) {
+        return standaloneNum * 60;
+      }
+      return standaloneNum;
+    }
+  }
+
+  return totalMins > 0 ? totalMins : 30;
 };
 
 const computeEndTime = (startTime, duration) => {
@@ -35,52 +56,8 @@ const computeEndTime = (startTime, duration) => {
   return `${endH}:${endM}`;
 };
 
-// 🔁 Auto-generate hourly time slots (9 AM - 6 PM) for all professionals for the next 7 days
-const generateWeeklyTimeSlots = async () => {
-  try {
-    const professionals = await Professional.find();
-
-    for (let i = 0; i < 7; i++) {
-      const date = dayjs().add(i, "day").format("YYYY-MM-DD");
-
-      for (const prof of professionals) {
-        let currentTime = dayjs(`${date}T09:00`);
-        const endTime = dayjs(`${date}T18:00`);
-
-        while (currentTime.isBefore(endTime)) {
-          const slotStart = currentTime.format("HH:mm");
-          const slotEnd = currentTime.add(5, "minute").format("HH:mm");
-
-          const exists = await TimeSlot.findOne({
-            professionalId: prof._id,
-            date,
-            startTime: slotStart,
-            endTime: slotEnd,
-          });
-
-          if (!exists) {
-            await TimeSlot.create({
-              salonId: prof.salonId,
-              professionalId: prof._id,
-              date,
-              startTime: slotStart,
-              endTime: slotEnd,
-              isBooked: false,
-            });
-          }
-
-          currentTime = currentTime.add(5, "minute");
-        }
-      }
-    }
- console.log(" Weekly time slots generated successfully");
-  } catch (error) {
- console.error(" Error generating weekly time slots:", error);
-  }
-};
-
-// Run on server start
-generateWeeklyTimeSlots();
+// ✅ Slot pre-generation removed — slots are now computed dynamically
+// by GET /api/timeslots using the conflict engine (utils/conflictEngine.js).
 
 // ✅ GET appointments by salonId with optional filters
 router.get("/salon/:id", async (req, res) => {
@@ -237,23 +214,33 @@ router.post("/", async (req, res) => {
           } : null
         });
 
-        const savedAppt = await newAppt.save();
- console.log(" Appointment saved:", savedAppt._id);
+        // ✅ Server-side conflict guard — prevent double-booking
+        if (appt.professionalId && appt.professionalId !== "any") {
+          const existingAppointments = await Appointment.find({
+            professionalId: appt.professionalId,
+            date:           appt.date,
+            status:         { $in: ["pending", "confirmed", "rescheduled"] },
+          }).select("professionalId date startTime endTime status").lean();
 
-        // Mark time slots as booked
-        if (appt.professionalId) {
-          const updateResult = await TimeSlot.updateMany(
-            {
-              professionalId: appt.professionalId,
-              date: appt.date,
-              startTime: { $gte: appt.startTime },
-              endTime: { $lte: endTime },
-              isBooked: false,
-            },
-            { isBooked: true }
+          const totalDuration = totalDurationMins;
+          const hasConflict   = isSlotConflicting(
+            existingAppointments,
+            String(appt.professionalId),
+            appt.date,
+            appt.startTime,
+            totalDuration
           );
- console.log(` Marked ${updateResult.modifiedCount} time slots as booked`);
+
+          if (hasConflict) {
+            throw new Error(
+              `CONFLICT: The selected time slot (${appt.startTime}) for ${appt.date} ` +
+              `is already booked for this professional.`
+            );
+          }
         }
+
+        const savedAppt = await newAppt.save();
+        console.log("✅ Appointment saved:", savedAppt._id);
 
         return savedAppt;
       })
@@ -389,17 +376,8 @@ router.delete("/:id", async (req, res) => {
 
     await Appointment.findByIdAndDelete(req.params.id);
 
-    await TimeSlot.updateMany(
-      {
-        professionalId: appointment.professionalId,
-        date: appointment.date,
-        startTime: { $gte: appointment.startTime },
-        endTime: { $lte: appointment.endTime },
-      },
-      { isBooked: false }
-    );
-
-    res.json({ message: "Deleted successfully and slot updated" });
+    // ✅ No TimeSlot update needed — slots are dynamic
+    res.json({ message: "Deleted successfully" });
   } catch (err) {
  console.error(" Failed to delete appointment:", err);
     res.status(500).json({ message: "Failed to delete appointment" });
@@ -470,17 +448,7 @@ router.patch("/:id/status", async (req, res) => {
       }
     }
 
-    if (status === "cancelled") {
-      await TimeSlot.updateMany(
-        {
-          professionalId: updated.professionalId,
-          date: updated.date,
-          startTime: { $gte: updated.startTime },
-          endTime: { $lte: updated.endTime },
-        },
-        { isBooked: false }
-      );
-    }
+    // ✅ No TimeSlot update needed when cancelling — slots are dynamic
 
     res.json({ success: true, updated });
   } catch (err) {
@@ -511,19 +479,7 @@ router.patch("/:id/reschedule", async (req, res) => {
 
  console.log(" Old appointment found:", oldAppointment._id, "Status:", oldAppointment.status);
 
-    // Free old time slots
-    if (oldAppointment.professionalId && oldAppointment.date && oldAppointment.startTime && oldAppointment.endTime) {
-      const freeResult = await TimeSlot.updateMany(
-        {
-          professionalId: oldAppointment.professionalId,
-          date: oldAppointment.date,
-          startTime: { $gte: oldAppointment.startTime },
-          endTime: { $lte: oldAppointment.endTime },
-        },
-        { isBooked: false }
-      );
- console.log(` Freed ${freeResult.modifiedCount} old time slots`);
-    }
+    // ✅ No need to free old time slots — slots are computed dynamically
 
     let updatedAppointment;
 
@@ -571,20 +527,36 @@ router.patch("/:id/reschedule", async (req, res) => {
  console.log(" Existing appointment updated:", updatedAppointment._id, "Status:", updatedAppointment.status);
     }
 
-    // Mark new slots as booked
-    const profId = professionalId || updatedAppointment.professionalId;
-    if (profId && date && startTime && endTime) {
-      const bookResult = await TimeSlot.updateMany(
-        {
-          professionalId: profId,
-          date: date,
-          startTime: { $gte: startTime },
-          endTime: { $lte: endTime },
-          isBooked: false,
-        },
-        { isBooked: true }
+    // ✅ Server-side conflict guard for reschedule
+    const profId = professionalId || String(updatedAppointment.professionalId);
+    if (profId && profId !== "any" && date && startTime && endTime) {
+      const rescheduleApptId = createNew ? null : updatedAppointment._id;
+
+      const existingForConflict = await Appointment.find({
+        professionalId: profId,
+        date:           date,
+        status:         { $in: ["pending", "confirmed", "rescheduled"] },
+        ...(rescheduleApptId ? { _id: { $ne: rescheduleApptId } } : {}),
+      }).select("professionalId date startTime endTime status").lean();
+
+      const durationMins = parseDurationMins(
+        updatedAppointment.services?.[0]?.duration || "30 minutes"
       );
- console.log(` Booked ${bookResult.modifiedCount} new time slots`);
+
+      const hasConflict = isSlotConflicting(
+        existingForConflict,
+        String(profId),
+        date,
+        startTime,
+        durationMins
+      );
+
+      if (hasConflict) {
+        return res.status(409).json({
+          success: false,
+          message: `The selected time slot (${startTime} on ${date}) is already taken. Please choose another time.`
+        });
+      }
     }
 
     // Send notifications for rescheduled appointment

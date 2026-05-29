@@ -6,7 +6,15 @@ const salonSchema = new mongoose.Schema({
   password: { type: String, required: true },
   phone: String,
   location: String,
-  workingHours: String,
+  workingHours: String,       // Human-readable display string e.g. "9AM - 8PM"
+  openTime: {
+    type: String,
+    default: "09:00",          // HH:MM 24-hour format for conflict engine
+  },
+  closeTime: {
+    type: String,
+    default: "20:00",          // HH:MM 24-hour format for conflict engine
+  },
   services: [String],
   salonType: String,
   image: String,
