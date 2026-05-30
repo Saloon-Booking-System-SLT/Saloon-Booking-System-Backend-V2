@@ -15,6 +15,10 @@ const salonSchema = new mongoose.Schema({
     type: String,
     default: "20:00",          // HH:MM 24-hour format for conflict engine
   },
+  closedDay: {
+    type: String,
+    default: "Sunday",         // E.g. "Sunday", "Monday", or "None"
+  },
   services: [String],
   salonType: String,
   image: String,

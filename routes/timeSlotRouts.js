@@ -65,10 +65,22 @@ router.get("/", async (req, res) => {
     }
 
     if (resolvedSalonId && mongoose.Types.ObjectId.isValid(resolvedSalonId)) {
-      const salon = await Salon.findById(resolvedSalonId).select("openTime closeTime").lean();
+      const salon = await Salon.findById(resolvedSalonId).select("openTime closeTime closedDay").lean();
       if (salon) {
         if (salon.openTime)  openTime  = salon.openTime;
         if (salon.closeTime) closeTime = salon.closeTime;
+
+        // Check if the salon is closed on this day of the week
+        if (salon.closedDay && salon.closedDay.toLowerCase() !== "none") {
+          const [year, month, day] = date.split("-").map(Number);
+          const parsedDate = new Date(year, month - 1, day);
+          const dayOfWeek = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
+
+          if (dayOfWeek.toLowerCase() === salon.closedDay.toLowerCase()) {
+            console.log(`ℹ️ [timeslots] Salon ${resolvedSalonId} is closed on ${dayOfWeek}s. Returning empty slots.`);
+            return res.json([]);
+          }
+        }
       }
     }
 

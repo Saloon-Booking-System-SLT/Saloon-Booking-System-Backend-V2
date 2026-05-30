@@ -214,6 +214,20 @@ router.post("/", async (req, res) => {
           } : null
         });
 
+        // ✅ Server-side closed day check
+        const salonData = await Salon.findById(appt.salonId).select("closedDay").lean();
+        if (salonData && salonData.closedDay && salonData.closedDay.toLowerCase() !== "none") {
+          const [year, month, day] = appt.date.split("-").map(Number);
+          const parsedDate = new Date(year, month - 1, day);
+          const dayOfWeek = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
+
+          if (dayOfWeek.toLowerCase() === salonData.closedDay.toLowerCase()) {
+            throw new Error(
+              `CLOSED: The salon is closed on ${dayOfWeek}s. Booking not allowed.`
+            );
+          }
+        }
+
         // ✅ Server-side conflict guard — prevent double-booking
         if (appt.professionalId && appt.professionalId !== "any") {
           const existingAppointments = await Appointment.find({
@@ -478,6 +492,21 @@ router.patch("/:id/reschedule", async (req, res) => {
     }
 
  console.log(" Old appointment found:", oldAppointment._id, "Status:", oldAppointment.status);
+
+    // ✅ Server-side closed day check for reschedule
+    const salonData = await Salon.findById(oldAppointment.salonId).select("closedDay").lean();
+    if (salonData && salonData.closedDay && salonData.closedDay.toLowerCase() !== "none") {
+      const [year, month, day] = date.split("-").map(Number);
+      const parsedDate = new Date(year, month - 1, day);
+      const dayOfWeek = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
+
+      if (dayOfWeek.toLowerCase() === salonData.closedDay.toLowerCase()) {
+        return res.status(409).json({
+          success: false,
+          message: `The salon is closed on ${dayOfWeek}s. Reschedule not allowed.`
+        });
+      }
+    }
 
     // ✅ No need to free old time slots — slots are computed dynamically
 
