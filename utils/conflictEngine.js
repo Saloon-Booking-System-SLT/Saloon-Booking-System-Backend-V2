@@ -142,6 +142,28 @@ function checkConflictDetails(appointments, proId, date, startTime, durationMins
     return { conflicting: false, insufficientGap: false };
   }
 
+  // Find the conflicting appointment/leave
+  const conflictingAppt = appointments.find((appt) => {
+    if (String(appt.professionalId) !== String(proId)) return false;
+    if (appt.date !== date) return false;
+    const activeStatuses = ["pending", "confirmed", "rescheduled"];
+    if (appt.status && !activeStatuses.includes(appt.status)) return false;
+
+    const newStart = timeToMins(startTime);
+    const newEnd   = newStart + durationMins;
+    const bStart = timeToMins(appt.startTime);
+    const bEnd   = timeToMins(appt.endTime);
+
+    return newStart < bEnd && newEnd > bStart;
+  });
+
+  const isLeave = conflictingAppt && conflictingAppt.isLeave ? true : false;
+  const leaveReason = isLeave ? (conflictingAppt.reason || "Holiday") : null;
+
+  if (isLeave) {
+    return { conflicting: true, insufficientGap: false, isLeave: true, leaveReason };
+  }
+
   // 2. Is the start time actually booked (busy at the first 30 minutes)?
   // We use SLOT_STEP_MINS (30 min) as the minimum test
   const isConflictingAtStart = isSlotConflicting(appointments, proId, date, startTime, 30);
@@ -229,7 +251,9 @@ function getAvailableSlots(appointments, proId, date, durationMins, openTime, cl
       conflicting: details.conflicting,
       insufficientGap: details.insufficientGap || false,
       availableGapMins: details.availableGapMins || null,
-      nextAppointmentTime: details.nextAppointmentTime || null
+      nextAppointmentTime: details.nextAppointmentTime || null,
+      isLeave: details.isLeave || false,
+      leaveReason: details.leaveReason || null
     });
   }
 

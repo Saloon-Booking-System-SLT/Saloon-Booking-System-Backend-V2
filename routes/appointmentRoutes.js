@@ -236,6 +236,32 @@ router.post("/", async (req, res) => {
             status:         { $in: ["pending", "confirmed", "rescheduled"] },
           }).select("professionalId date startTime endTime status").lean();
 
+          // Fetch professional's leaves and add them as virtual appointments for conflict check
+          const pro = await Professional.findById(appt.professionalId).select("leaves").lean();
+          if (pro && pro.leaves && pro.leaves.length > 0) {
+            pro.leaves.forEach(leave => {
+              if (leave.date === appt.date) {
+                if (leave.type === "full") {
+                  existingAppointments.push({
+                    professionalId: pro._id,
+                    date: appt.date,
+                    startTime: "00:00",
+                    endTime: "23:59",
+                    status: "confirmed"
+                  });
+                } else if (leave.type === "short" && leave.startTime && leave.endTime) {
+                  existingAppointments.push({
+                    professionalId: pro._id,
+                    date: appt.date,
+                    startTime: leave.startTime,
+                    endTime: leave.endTime,
+                    status: "confirmed"
+                  });
+                }
+              }
+            });
+          }
+
           const totalDuration = totalDurationMins;
           const hasConflict   = isSlotConflicting(
             existingAppointments,
@@ -567,6 +593,32 @@ router.patch("/:id/reschedule", async (req, res) => {
         status:         { $in: ["pending", "confirmed", "rescheduled"] },
         ...(rescheduleApptId ? { _id: { $ne: rescheduleApptId } } : {}),
       }).select("professionalId date startTime endTime status").lean();
+
+      // Fetch professional's leaves and add them as virtual appointments for conflict check
+      const pro = await Professional.findById(profId).select("leaves").lean();
+      if (pro && pro.leaves && pro.leaves.length > 0) {
+        pro.leaves.forEach(leave => {
+          if (leave.date === date) {
+            if (leave.type === "full") {
+              existingForConflict.push({
+                professionalId: pro._id,
+                date: date,
+                startTime: "00:00",
+                endTime: "23:59",
+                status: "confirmed"
+              });
+            } else if (leave.type === "short" && leave.startTime && leave.endTime) {
+              existingForConflict.push({
+                professionalId: pro._id,
+                date: date,
+                startTime: leave.startTime,
+                endTime: leave.endTime,
+                status: "confirmed"
+              });
+            }
+          }
+        });
+      }
 
       const durationMins = parseDurationMins(
         updatedAppointment.services?.[0]?.duration || "30 minutes"

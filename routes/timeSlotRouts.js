@@ -96,7 +96,7 @@ router.get("/", async (req, res) => {
       const professionals = await Professional.find({
         salonId: new mongoose.Types.ObjectId(salonId),
         available: true,
-      }).select("_id name").lean();
+      }).select("_id name leaves").lean();
 
       if (!professionals.length) {
         return res.json([]); // No professionals available
@@ -108,6 +108,37 @@ router.get("/", async (req, res) => {
         date:    date,
         status:  { $in: ["pending", "confirmed", "rescheduled"] },
       }).select("professionalId date startTime endTime status").lean();
+
+      // Convert matching leaves to virtual appointments
+      professionals.forEach(pro => {
+        if (pro.leaves && pro.leaves.length > 0) {
+          pro.leaves.forEach(leave => {
+            if (leave.date === date) {
+              if (leave.type === "full") {
+                appointments.push({
+                  professionalId: pro._id,
+                  date: date,
+                  startTime: "00:00",
+                  endTime: "23:59",
+                  status: "confirmed",
+                  isLeave: true,
+                  reason: leave.reason || "Holiday"
+                });
+              } else if (leave.type === "short" && leave.startTime && leave.endTime) {
+                appointments.push({
+                  professionalId: pro._id,
+                  date: date,
+                  startTime: leave.startTime,
+                  endTime: leave.endTime,
+                  status: "confirmed",
+                  isLeave: true,
+                  reason: leave.reason || "Short Leave"
+                });
+              }
+            }
+          });
+        }
+      });
 
       const slots = getAvailableSlotsForAny(
         appointments,
@@ -137,6 +168,36 @@ router.get("/", async (req, res) => {
       date:           date,
       status:         { $in: ["pending", "confirmed", "rescheduled"] },
     }).select("professionalId date startTime endTime status").lean();
+
+    // Fetch professional's leaves and add them as virtual appointments
+    const pro = await Professional.findById(professionalId).select("leaves").lean();
+    if (pro && pro.leaves && pro.leaves.length > 0) {
+      pro.leaves.forEach(leave => {
+        if (leave.date === date) {
+          if (leave.type === "full") {
+            appointments.push({
+              professionalId: pro._id,
+              date: date,
+              startTime: "00:00",
+              endTime: "23:59",
+              status: "confirmed",
+              isLeave: true,
+              reason: leave.reason || "Holiday"
+            });
+          } else if (leave.type === "short" && leave.startTime && leave.endTime) {
+            appointments.push({
+              professionalId: pro._id,
+              date: date,
+              startTime: leave.startTime,
+              endTime: leave.endTime,
+              status: "confirmed",
+              isLeave: true,
+              reason: leave.reason || "Short Leave"
+            });
+          }
+        }
+      });
+    }
 
     const slots = getAvailableSlots(
       appointments,
