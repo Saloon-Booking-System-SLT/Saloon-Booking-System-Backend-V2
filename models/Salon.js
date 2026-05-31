@@ -48,6 +48,14 @@ const salonSchema = new mongoose.Schema({
   // Reset password fields
   resetPasswordToken: String,
   resetPasswordExpires: Date,
+  temporaryClosures: [{
+    startDate: { type: String, required: true }, // YYYY-MM-DD
+    endDate: { type: String, required: true },   // YYYY-MM-DD
+    type: { type: String, enum: ["full", "short"], default: "full" },
+    startTime: { type: String }, // HH:MM
+    endTime: { type: String },   // HH:MM
+    reason: { type: String }
+  }],
   createdAt: {
     type: Date,
     default: Date.now

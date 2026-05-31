@@ -214,17 +214,50 @@ router.post("/", async (req, res) => {
           } : null
         });
 
-        // ✅ Server-side closed day check
-        const salonData = await Salon.findById(appt.salonId).select("closedDay").lean();
-        if (salonData && salonData.closedDay && salonData.closedDay.toLowerCase() !== "none") {
-          const [year, month, day] = appt.date.split("-").map(Number);
-          const parsedDate = new Date(year, month - 1, day);
-          const dayOfWeek = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
+        // ✅ Server-side closed day & temporary closures check
+        const salonData = await Salon.findById(appt.salonId).select("closedDay temporaryClosures").lean();
+        if (salonData) {
+          // Check temporary closures
+          if (salonData.temporaryClosures && salonData.temporaryClosures.length > 0) {
+            const matchingClosure = salonData.temporaryClosures.find(closure => {
+              return appt.date >= closure.startDate && appt.date <= closure.endDate;
+            });
 
-          if (dayOfWeek.toLowerCase() === salonData.closedDay.toLowerCase()) {
-            throw new Error(
-              `CLOSED: The salon is closed on ${dayOfWeek}s. Booking not allowed.`
-            );
+            if (matchingClosure) {
+              if (matchingClosure.type === "full") {
+                throw new Error(
+                  `CLOSED: The salon is closed on this date (${appt.date}) due to: ${matchingClosure.reason || "Holiday"}.`
+                );
+              } else if (matchingClosure.type === "short" && matchingClosure.startTime && matchingClosure.endTime) {
+                const timeToMins = (t) => {
+                  const [h, m] = t.split(":").map(Number);
+                  return h * 60 + m;
+                };
+                const closureStart = timeToMins(matchingClosure.startTime);
+                const closureEnd = timeToMins(matchingClosure.endTime);
+                const reqStart = timeToMins(appt.startTime);
+                const reqEnd = reqStart + totalDurationMins;
+
+                if (Math.max(closureStart, reqStart) < Math.min(closureEnd, reqEnd)) {
+                  throw new Error(
+                    `CLOSED: The salon is temporarily closed on ${appt.date} between ${matchingClosure.startTime} and ${matchingClosure.endTime} (${matchingClosure.reason || "Staff Meeting"}).`
+                  );
+                }
+              }
+            }
+          }
+
+          // Check weekly closed day
+          if (salonData.closedDay && salonData.closedDay.toLowerCase() !== "none") {
+            const [year, month, day] = appt.date.split("-").map(Number);
+            const parsedDate = new Date(year, month - 1, day);
+            const dayOfWeek = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
+
+            if (dayOfWeek.toLowerCase() === salonData.closedDay.toLowerCase()) {
+              throw new Error(
+                `CLOSED: The salon is closed on ${dayOfWeek}s. Booking not allowed.`
+              );
+            }
           }
         }
 
@@ -519,18 +552,56 @@ router.patch("/:id/reschedule", async (req, res) => {
 
  console.log(" Old appointment found:", oldAppointment._id, "Status:", oldAppointment.status);
 
-    // ✅ Server-side closed day check for reschedule
-    const salonData = await Salon.findById(oldAppointment.salonId).select("closedDay").lean();
-    if (salonData && salonData.closedDay && salonData.closedDay.toLowerCase() !== "none") {
-      const [year, month, day] = date.split("-").map(Number);
-      const parsedDate = new Date(year, month - 1, day);
-      const dayOfWeek = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
-
-      if (dayOfWeek.toLowerCase() === salonData.closedDay.toLowerCase()) {
-        return res.status(409).json({
-          success: false,
-          message: `The salon is closed on ${dayOfWeek}s. Reschedule not allowed.`
+    // ✅ Server-side closed day & temporary closures check for reschedule
+    const salonData = await Salon.findById(oldAppointment.salonId).select("closedDay temporaryClosures").lean();
+    if (salonData) {
+      // Check temporary closures
+      if (salonData.temporaryClosures && salonData.temporaryClosures.length > 0) {
+        const matchingClosure = salonData.temporaryClosures.find(closure => {
+          return date >= closure.startDate && date <= closure.endDate;
         });
+
+        if (matchingClosure) {
+          if (matchingClosure.type === "full") {
+            return res.status(409).json({
+              success: false,
+              message: `The salon is closed on this date (${date}) due to: ${matchingClosure.reason || "Holiday"}. Reschedule not allowed.`
+            });
+          } else if (matchingClosure.type === "short" && matchingClosure.startTime && matchingClosure.endTime) {
+            // Find total duration from appointment services
+            const totalDurationMins = oldAppointment.services.reduce((sum, s) => sum + durationToMinutes(s.duration), 0);
+            
+            const timeToMins = (t) => {
+              const [h, m] = t.split(":").map(Number);
+              return h * 60 + m;
+            };
+            const closureStart = timeToMins(matchingClosure.startTime);
+            const closureEnd = timeToMins(matchingClosure.endTime);
+            const reqStart = timeToMins(startTime);
+            const reqEnd = reqStart + totalDurationMins;
+
+            if (Math.max(closureStart, reqStart) < Math.min(closureEnd, reqEnd)) {
+              return res.status(409).json({
+                success: false,
+                message: `The salon is temporarily closed on ${date} between ${matchingClosure.startTime} and ${matchingClosure.endTime} (${matchingClosure.reason || "Staff Meeting"}). Reschedule not allowed.`
+              });
+            }
+          }
+        }
+      }
+
+      // Check weekly closed day
+      if (salonData.closedDay && salonData.closedDay.toLowerCase() !== "none") {
+        const [year, month, day] = date.split("-").map(Number);
+        const parsedDate = new Date(year, month - 1, day);
+        const dayOfWeek = parsedDate.toLocaleDateString("en-US", { weekday: "long" });
+
+        if (dayOfWeek.toLowerCase() === salonData.closedDay.toLowerCase()) {
+          return res.status(409).json({
+            success: false,
+            message: `The salon is closed on ${dayOfWeek}s. Reschedule not allowed.`
+          });
+        }
       }
     }
 

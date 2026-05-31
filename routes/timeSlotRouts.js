@@ -55,6 +55,7 @@ router.get("/", async (req, res) => {
     // ── Resolve salon open/close hours ────────────────────────────
     let openTime  = "09:00";
     let closeTime = "20:00";
+    let shortClosure = null;
 
     // Try to find salon — either from salonId param or from the professional's salonId
     let resolvedSalonId = salonId;
@@ -65,10 +66,27 @@ router.get("/", async (req, res) => {
     }
 
     if (resolvedSalonId && mongoose.Types.ObjectId.isValid(resolvedSalonId)) {
-      const salon = await Salon.findById(resolvedSalonId).select("openTime closeTime closedDay").lean();
+      const salon = await Salon.findById(resolvedSalonId).select("openTime closeTime closedDay temporaryClosures").lean();
       if (salon) {
         if (salon.openTime)  openTime  = salon.openTime;
         if (salon.closeTime) closeTime = salon.closeTime;
+
+        // Check for temporary closures matching the date
+        if (salon.temporaryClosures && salon.temporaryClosures.length > 0) {
+          const matchingClosure = salon.temporaryClosures.find(closure => {
+            return date >= closure.startDate && date <= closure.endDate;
+          });
+
+          if (matchingClosure) {
+            if (matchingClosure.type === "full") {
+              console.log(`ℹ️ [timeslots] Salon ${resolvedSalonId} has a full temporary closure on ${date} (${matchingClosure.reason || "Holiday"}). Returning empty slots.`);
+              return res.json([]);
+            } else if (matchingClosure.type === "short" && matchingClosure.startTime && matchingClosure.endTime) {
+              console.log(`ℹ️ [timeslots] Salon ${resolvedSalonId} has a short temporary closure on ${date} from ${matchingClosure.startTime} to ${matchingClosure.endTime}.`);
+              shortClosure = matchingClosure;
+            }
+          }
+        }
 
         // Check if the salon is closed on this day of the week
         if (salon.closedDay && salon.closedDay.toLowerCase() !== "none") {
@@ -140,6 +158,21 @@ router.get("/", async (req, res) => {
         }
       });
 
+      // Inject temporary short closure for all professionals
+      if (shortClosure) {
+        professionals.forEach(pro => {
+          appointments.push({
+            professionalId: pro._id,
+            date: date,
+            startTime: shortClosure.startTime,
+            endTime: shortClosure.endTime,
+            status: "confirmed",
+            isClosure: true,
+            reason: shortClosure.reason || "Salon Temporary Closure"
+          });
+        });
+      }
+
       const slots = getAvailableSlotsForAny(
         appointments,
         professionals,
@@ -196,6 +229,19 @@ router.get("/", async (req, res) => {
             });
           }
         }
+      });
+    }
+
+    // Inject temporary short closure for this professional
+    if (shortClosure) {
+      appointments.push({
+        professionalId: new mongoose.Types.ObjectId(professionalId),
+        date: date,
+        startTime: shortClosure.startTime,
+        endTime: shortClosure.endTime,
+        status: "confirmed",
+        isClosure: true,
+        reason: shortClosure.reason || "Salon Temporary Closure"
       });
     }
 
