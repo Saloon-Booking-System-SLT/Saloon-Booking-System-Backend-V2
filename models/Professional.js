@@ -43,6 +43,13 @@ const professionalSchema = new mongoose.Schema({
   },
   image: { type: String },       // base64 string
   certificate: { type: String }, // base64 string
+  leaves: [{
+    date: { type: String, required: true }, // YYYY-MM-DD
+    type: { type: String, enum: ["full", "short"], default: "full" },
+    startTime: { type: String }, // HH:MM
+    endTime: { type: String },   // HH:MM
+    reason: { type: String }
+  }]
 });
 
 // Index for faster queries when filtering by services

@@ -1023,4 +1023,74 @@ router.patch("/:id/image", upload.single("image"), async (req, res) => {
   }
 });
 
+// ✅ Add salon temporary closure (protected - owner only)
+router.put("/:id/closures", authenticateToken, requireOwner, async (req, res) => {
+  try {
+    if (req.params.id !== req.user.userId) {
+      return res.status(403).json({ message: 'Can only update your own salon' });
+    }
+
+    const { startDate, endDate, type, startTime, endTime, reason } = req.body;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: "Start date and End date are required" });
+    }
+
+    const salon = await Salon.findById(req.params.id);
+    if (!salon) {
+      return res.status(404).json({ message: "Salon not found" });
+    }
+
+    const newClosure = {
+      startDate,
+      endDate,
+      type: type || "full",
+      startTime: type === "short" ? startTime : undefined,
+      endTime: type === "short" ? endTime : undefined,
+      reason
+    };
+
+    salon.temporaryClosures.push(newClosure);
+    await salon.save();
+
+    res.json({
+      success: true,
+      message: "Temporary closure added successfully",
+      temporaryClosures: salon.temporaryClosures
+    });
+  } catch (err) {
+    console.error("Add temporary closure error:", err);
+    res.status(500).json({ message: "Server error while adding temporary closure" });
+  }
+});
+
+// ✅ Delete salon temporary closure (protected - owner only)
+router.delete("/:id/closures/:closureId", authenticateToken, requireOwner, async (req, res) => {
+  try {
+    if (req.params.id !== req.user.userId) {
+      return res.status(403).json({ message: 'Can only update your own salon' });
+    }
+
+    const salon = await Salon.findById(req.params.id);
+    if (!salon) {
+      return res.status(404).json({ message: "Salon not found" });
+    }
+
+    salon.temporaryClosures = salon.temporaryClosures.filter(
+      closure => closure._id.toString() !== req.params.closureId
+    );
+
+    await salon.save();
+
+    res.json({
+      success: true,
+      message: "Temporary closure removed successfully",
+      temporaryClosures: salon.temporaryClosures
+    });
+  } catch (err) {
+    console.error("Delete temporary closure error:", err);
+    res.status(500).json({ message: "Server error while removing temporary closure" });
+  }
+});
+
 module.exports = router;

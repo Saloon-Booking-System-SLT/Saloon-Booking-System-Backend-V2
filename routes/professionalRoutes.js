@@ -267,4 +267,57 @@ router.get("/for-service/:salonId/:serviceId", async (req, res) => {
   }
 });
 
+// ----------------- ADD LEAVE -----------------
+router.put("/:id/leaves", async (req, res) => {
+  try {
+    const { date, type, startTime, endTime, reason } = req.body;
+
+    if (!date) {
+      return res.status(400).json({ error: "Date is required" });
+    }
+
+    const updateFields = { date, type: type || "full", reason: reason || "" };
+    if (type === "short") {
+      if (!startTime || !endTime) {
+        return res.status(400).json({ error: "Start time and end time are required for short leaves" });
+      }
+      updateFields.startTime = startTime;
+      updateFields.endTime = endTime;
+    }
+
+    const updated = await Professional.findByIdAndUpdate(
+      req.params.id,
+      { $push: { leaves: updateFields } },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ error: "Professional not found" });
+
+    console.log(` Added ${type} leave for professional ${updated.name} on ${date}`);
+    res.json({ message: "Leave added successfully", data: updated });
+  } catch (err) {
+    console.error("ADD LEAVE ERROR:", err);
+    res.status(500).json({ error: "Failed to add leave", details: err.message });
+  }
+});
+
+// ----------------- DELETE LEAVE -----------------
+router.delete("/:id/leaves/:leaveId", async (req, res) => {
+  try {
+    const updated = await Professional.findByIdAndUpdate(
+      req.params.id,
+      { $pull: { leaves: { _id: req.params.leaveId } } },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ error: "Professional not found" });
+
+    console.log(` Deleted leave ${req.params.leaveId} for professional ${updated.name}`);
+    res.json({ message: "Leave removed successfully", data: updated });
+  } catch (err) {
+    console.error("REMOVE LEAVE ERROR:", err);
+    res.status(500).json({ error: "Failed to remove leave", details: err.message });
+  }
+});
+
 module.exports = router;

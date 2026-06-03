@@ -6,7 +6,19 @@ const salonSchema = new mongoose.Schema({
   password: { type: String, required: true },
   phone: String,
   location: String,
-  workingHours: String,
+  workingHours: String,       // Human-readable display string e.g. "9AM - 8PM"
+  openTime: {
+    type: String,
+    default: "09:00",          // HH:MM 24-hour format for conflict engine
+  },
+  closeTime: {
+    type: String,
+    default: "20:00",          // HH:MM 24-hour format for conflict engine
+  },
+  closedDay: {
+    type: String,
+    default: "Sunday",         // E.g. "Sunday", "Monday", or "None"
+  },
   services: [String],
   salonType: String,
   image: String,
@@ -36,6 +48,14 @@ const salonSchema = new mongoose.Schema({
   // Reset password fields
   resetPasswordToken: String,
   resetPasswordExpires: Date,
+  temporaryClosures: [{
+    startDate: { type: String, required: true }, // YYYY-MM-DD
+    endDate: { type: String, required: true },   // YYYY-MM-DD
+    type: { type: String, enum: ["full", "short"], default: "full" },
+    startTime: { type: String }, // HH:MM
+    endTime: { type: String },   // HH:MM
+    reason: { type: String }
+  }],
   createdAt: {
     type: Date,
     default: Date.now
