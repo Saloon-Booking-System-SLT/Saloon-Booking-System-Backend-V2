@@ -1209,4 +1209,36 @@ router.delete('/delete-account', authenticateToken, requireCustomer, async (req,
   }
 });
 
-module.exports = router;
+// ─── FCM Token Registration ───────────────────────────────────────────────────
+// Called by the mobile app after login to register / refresh the device FCM token.
+// The token is stored on the User document and used to send push notifications.
+router.post('/fcm-token', async (req, res) => {
+  try {
+    const { userId, fcmToken } = req.body;
+
+    if (!userId || !fcmToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId and fcmToken are required'
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { fcmToken, updatedAt: new Date() },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    console.log(`✅ FCM token updated for user ${userId}`);
+    res.json({ success: true, message: 'FCM token registered' });
+  } catch (error) {
+    console.error('FCM token update error:', error);
+    res.status(500).json({ success: false, message: 'Server error updating FCM token' });
+  }
+});
+
+module.exports = router;

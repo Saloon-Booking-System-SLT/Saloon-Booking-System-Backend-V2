@@ -6,6 +6,7 @@ const Professional = require("../models/Professional");
 const Salon = require("../models/Salon");
 const dayjs = require("dayjs");
 const notificationService = require("../services/notificationService");
+const fcmService = require("../services/fcmService");
 const { isSlotConflicting, parseDurationMins } = require("../utils/conflictEngine");
 
 // 🔧 FIXED: Handle undefined/empty duration strings
@@ -367,14 +368,23 @@ router.post("/", async (req, res) => {
             totalAmount: notificationData.totalAmount
           });
 
-          // Send confirmation to customer
+          // Send confirmation to customer (email/SMS)
  console.log(' Calling sendAppointmentConfirmation...');
           const confirmationResult = await notificationService.sendAppointmentConfirmation(notificationData);
  console.log(' Customer notification result:', confirmationResult);
 
+          // 🔔 Send FCM push notification to customer's phone
+          try {
+            const pushResult = await fcmService.sendAppointmentConfirmationPush(notificationData);
+            console.log('📱 FCM push result:', pushResult);
+          } catch (pushError) {
+            console.error('❌ FCM push error (non-blocking):', pushError.message);
+          }
+
           // Send notification to salon owner
           if (salon.email) {
  console.log(' Sending owner notification to:', salon.email);
+
             const ownerNotificationData = {
               ownerEmail: salon.email,
               ownerName: salon.name,
