@@ -523,7 +523,7 @@ router.post("/", async (req, res) => {
 });
 
 // ... rest of your routes remain the same
-// ✅ GET single appointment by ID (with 6-character short ID regex fallback)
+// ✅ GET single appointment by ID (with 6-character short ID regex fallback and bookingGroupId grouping)
 router.get("/:id", async (req, res) => {
   try {
     const idParam = req.params.id;
@@ -545,8 +545,21 @@ router.get("/:id", async (req, res) => {
     if (!appointment) {
       return res.status(404).json({ success: false, message: "Appointment not found" });
     }
+
+    let groupAppointments = [];
+    if (appointment.bookingGroupId) {
+      groupAppointments = await Appointment.find({ bookingGroupId: appointment.bookingGroupId })
+        .populate("salonId", "name location email phone")
+        .populate("professionalId", "name role gender")
+        .sort({ startTime: 1 });
+    } else {
+      groupAppointments = [appointment];
+    }
     
-    res.json(appointment);
+    res.json({
+      appointment,
+      groupAppointments
+    });
   } catch (err) {
     console.error(" Error fetching appointment:", err);
     res.status(500).json({ success: false, message: "Failed to fetch appointment", error: err.message });
