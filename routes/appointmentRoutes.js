@@ -320,31 +320,29 @@ router.post("/", async (req, res) => {
       })
     );
 
- console.log(` ${savedAppointments.length} appointments created successfully`);
+    console.log(` ${savedAppointments.length} appointments created successfully`);
 
     // Send notifications for all created appointments
     try {
- console.log(' Starting notification process...');
- console.log(' Email provided:', email);
- console.log(' Phone provided:', phone);
+      console.log(' Starting notification process...');
+      console.log(' Email provided:', email);
+      console.log(' Phone provided:', phone);
 
       // Get salon information for notifications
       const firstAppointment = savedAppointments[0];
- console.log(' First appointment:', firstAppointment.salonId);
+      console.log(' First appointment:', firstAppointment.salonId);
 
       const salon = await Salon.findById(firstAppointment.salonId);
- console.log(' Salon found:', salon ? salon.name : 'Not found');
+      console.log(' Salon found:', salon ? salon.name : 'Not found');
 
       if (!salon) {
- console.log('️ Salon not found for notifications');
+        console.log('⚠️ Salon not found for notifications');
       } else {
- console.log(' Processing notifications for', savedAppointments.length, 'appointments');
+        console.log(' Processing notifications for', savedAppointments.length, 'appointments');
 
-        // Send customer confirmation for each appointment
-        for (const appointment of savedAppointments) {
- console.log(' Processing notification for appointment:', appointment._id);
-
-          // Calculate service names and total amount from all services
+        if (savedAppointments.length === 1) {
+          // SINGLE APPOINTMENT: Send normal notifications
+          const appointment = savedAppointments[0];
           const serviceNames = appointment.services.map(s => s.name).filter(n => n).join(', ') || 'Service';
           const totalAmount = appointment.services.reduce((sum, s) => sum + (s.price || 0), 0);
 
@@ -357,10 +355,11 @@ router.post("/", async (req, res) => {
             date: dayjs(appointment.date).format('MMMM DD, YYYY'),
             time: appointment.startTime,
             totalAmount: totalAmount,
-            appointmentId: appointment._id.toString().slice(-6).toUpperCase()
+            appointmentId: appointment._id.toString().slice(-6).toUpperCase(),
+            fullAppointmentId: appointment._id.toString()
           };
 
- console.log(' Notification data prepared:', {
+          console.log(' Notification data prepared:', {
             email: notificationData.customerEmail,
             phone: notificationData.customerPhone,
             salonName: notificationData.salonName,
@@ -369,9 +368,13 @@ router.post("/", async (req, res) => {
           });
 
           // Send confirmation to customer (email/SMS)
- console.log(' Calling sendAppointmentConfirmation...');
-          const confirmationResult = await notificationService.sendAppointmentConfirmation(notificationData);
- console.log(' Customer notification result:', confirmationResult);
+          console.log(' Calling sendAppointmentConfirmation...');
+          try {
+            const confirmationResult = await notificationService.sendAppointmentConfirmation(notificationData);
+            console.log(' Customer notification result:', confirmationResult);
+          } catch (err) {
+            console.error(' Customer notification failed:', err);
+          }
 
           // 🔔 Send FCM push notification to customer's phone
           try {
@@ -383,7 +386,7 @@ router.post("/", async (req, res) => {
 
           // Send notification to salon owner
           if (salon.email) {
- console.log(' Sending owner notification to:', salon.email);
+            console.log(' Sending owner notification to:', salon.email);
 
             const ownerNotificationData = {
               ownerEmail: salon.email,
@@ -397,20 +400,108 @@ router.post("/", async (req, res) => {
               customerPhone: phone
             };
 
-            const ownerNotificationResult = await notificationService.notifyOwnerNewBooking(
-              { ownerEmail: salon.email, ownerName: salon.name, salonName: salon.name },
-              ownerNotificationData
-            );
- console.log(' Owner notification result:', ownerNotificationResult);
+            try {
+              const ownerNotificationResult = await notificationService.notifyOwnerNewBooking(
+                { ownerEmail: salon.email, ownerName: salon.name, salonName: salon.name },
+                ownerNotificationData
+              );
+              console.log(' Owner notification result:', ownerNotificationResult);
+            } catch (err) {
+              console.error(' Owner notification failed:', err);
+            }
           } else {
- console.log(' No salon owner email found');
+            console.log(' No salon owner email found');
+          }
+        } else {
+          // MULTIPLE APPOINTMENTS: Send consolidated notifications
+          const customerName = savedAppointments[0].user.name || name || 'Guest';
+          const date = dayjs(savedAppointments[0].date).format('MMMM DD, YYYY');
+
+          const servicesDetailList = savedAppointments.map(a => {
+            const serviceNames = a.services.map(s => s.name).filter(n => n).join(', ') || 'Service';
+            return `${serviceNames} (${a.startTime})`;
+          });
+
+          const consolidatedServiceName = servicesDetailList.join(', ');
+          
+          const totalAmount = savedAppointments.reduce((sum, appt) => {
+            return sum + appt.services.reduce((sSum, s) => sSum + (s.price || 0), 0);
+          }, 0);
+
+          const mainAppointmentId = savedAppointments[0]._id.toString().slice(-6).toUpperCase();
+
+          const consolidatedData = {
+            customerEmail: email,
+            customerPhone: phone,
+            customerName: customerName,
+            salonName: salon.name,
+            serviceName: consolidatedServiceName,
+            date: date,
+            time: savedAppointments.map(a => a.startTime).join(', '),
+            totalAmount: totalAmount,
+            appointmentId: mainAppointmentId,
+            fullAppointmentId: savedAppointments[0]._id.toString()
+          };
+
+          console.log(' Consolidated notification data prepared:', {
+            email: consolidatedData.customerEmail,
+            phone: consolidatedData.customerPhone,
+            salonName: consolidatedData.salonName,
+            serviceName: consolidatedData.serviceName,
+            totalAmount: consolidatedData.totalAmount
+          });
+
+          // Send consolidated confirmation to customer (email/SMS)
+          console.log(' Calling sendAppointmentConfirmation...');
+          try {
+            const confirmationResult = await notificationService.sendAppointmentConfirmation(consolidatedData);
+            console.log(' Customer consolidated notification result:', confirmationResult);
+          } catch (err) {
+            console.error(' Customer consolidated notification failed:', err);
+          }
+
+          // 🔔 Send consolidated FCM push notification to customer's phone
+          try {
+            const pushResult = await fcmService.sendAppointmentConfirmationPush(consolidatedData);
+            console.log('📱 FCM consolidated push result:', pushResult);
+          } catch (pushError) {
+            console.error('❌ FCM consolidated push error (non-blocking):', pushError.message);
+          }
+
+          // Send consolidated notification to salon owner
+          if (salon.email) {
+            console.log(' Sending owner notification to:', salon.email);
+
+            const ownerNotificationData = {
+              ownerEmail: salon.email,
+              ownerName: salon.name,
+              salonName: salon.name,
+              customerName: customerName,
+              serviceName: consolidatedServiceName,
+              date: date,
+              time: savedAppointments.map(a => a.startTime).join(', '),
+              totalAmount: totalAmount,
+              customerPhone: phone
+            };
+
+            try {
+              const ownerNotificationResult = await notificationService.notifyOwnerNewBooking(
+                { ownerEmail: salon.email, ownerName: salon.name, salonName: salon.name },
+                ownerNotificationData
+              );
+              console.log(' Owner consolidated notification result:', ownerNotificationResult);
+            } catch (err) {
+              console.error(' Owner consolidated notification failed:', err);
+            }
+          } else {
+            console.log(' No salon owner email found');
           }
         }
- console.log(' All notifications processed');
+        console.log(' All notifications processed');
       }
     } catch (notificationError) {
- console.error(' Notification error:', notificationError);
- console.error(' Notification error stack:', notificationError.stack);
+      console.error(' Notification error:', notificationError);
+      console.error(' Notification error stack:', notificationError.stack);
       // Don't fail the appointment creation if notifications fail
     }
 
@@ -432,6 +523,36 @@ router.post("/", async (req, res) => {
 });
 
 // ... rest of your routes remain the same
+// ✅ GET single appointment by ID (with 6-character short ID regex fallback)
+router.get("/:id", async (req, res) => {
+  try {
+    const idParam = req.params.id;
+    let query = {};
+
+    if (mongoose.Types.ObjectId.isValid(idParam)) {
+      query._id = idParam;
+    } else if (idParam.length === 6) {
+      // Suffix match fallback (case-insensitive regex)
+      query = { _id: { $regex: new RegExp(idParam + "$", "i") } };
+    } else {
+      return res.status(400).json({ success: false, message: "Invalid appointment ID format" });
+    }
+
+    const appointment = await Appointment.findOne(query)
+      .populate("salonId", "name location email phone")
+      .populate("professionalId", "name role gender");
+    
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: "Appointment not found" });
+    }
+    
+    res.json(appointment);
+  } catch (err) {
+    console.error(" Error fetching appointment:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch appointment", error: err.message });
+  }
+});
+
 router.get("/", async (req, res) => {
   const { email, phone } = req.query;
   try {

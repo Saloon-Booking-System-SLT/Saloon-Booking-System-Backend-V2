@@ -142,6 +142,7 @@ const sendAppointmentConfirmationPush = async (notificationData) => {
     time,
     totalAmount,
     appointmentId,
+    fullAppointmentId,
   } = notificationData;
 
   try {
@@ -167,12 +168,15 @@ const sendAppointmentConfirmationPush = async (notificationData) => {
       return { success: false, error: 'No FCM token for user' };
     }
 
-    const title = '✅ Appointment Confirmed!';
-    const body  = `Your appointment at ${salonName} on ${date} at ${time} is confirmed.`;
+    const isMultiple = (time && time.includes(',')) || (serviceName && (serviceName.includes(',') || serviceName.includes('(')));
+    const title = isMultiple ? '✅ Bookings Confirmed!' : '✅ Appointment Confirmed!';
+    const body  = isMultiple
+      ? `Your bookings at ${salonName} on ${date} are confirmed: ${serviceName}.`
+      : `Your appointment at ${salonName} on ${date} at ${time} is confirmed.`;
 
     const data = {
       type:          'appointmentConfirmation',
-      appointmentId: appointmentId || '',
+      appointmentId: fullAppointmentId || appointmentId || '',
       salonName:     salonName     || '',
       serviceName:   serviceName   || '',
       date:          date          || '',
