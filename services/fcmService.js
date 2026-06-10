@@ -191,7 +191,219 @@ const sendAppointmentConfirmationPush = async (notificationData) => {
   }
 };
 
+/**
+ * Send an "Appointment Rescheduled" push notification.
+ */
+const sendAppointmentReschedulePush = async (notificationData) => {
+  const {
+    customerEmail,
+    customerPhone,
+    customerName,
+    salonName,
+    serviceName,
+    date,
+    time,
+    totalAmount,
+    appointmentId,
+  } = notificationData;
+
+  try {
+    const query = [];
+    if (customerEmail) query.push({ email: customerEmail });
+    if (customerPhone) query.push({ phone: customerPhone });
+
+    if (query.length === 0) {
+      console.warn('⚠️  sendAppointmentReschedulePush: No email or phone provided');
+      return { success: false, error: 'No identifier provided' };
+    }
+
+    const user = await User.findOne({ $or: query }).select('fcmToken').lean();
+
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    if (!user.fcmToken) {
+      return { success: false, error: 'No FCM token for user' };
+    }
+
+    const title = '🔄 Appointment Rescheduled!';
+    const body  = `Your appointment at ${salonName} has been successfully rescheduled to ${date} at ${time}.`;
+
+    const data = {
+      type:          'appointmentReschedule',
+      appointmentId: appointmentId || '',
+      salonName:     salonName     || '',
+      serviceName:   serviceName   || '',
+      date:          date          || '',
+      time:          time          || '',
+      totalAmount:   String(totalAmount ?? 0),
+    };
+
+    return await sendPushNotification(user.fcmToken, title, body, data);
+  } catch (err) {
+    console.error('❌ sendAppointmentReschedulePush error:', err.message);
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Send an "Appointment Cancelled" push notification.
+ */
+const sendAppointmentCancellationPush = async (notificationData) => {
+  const {
+    customerEmail,
+    customerPhone,
+    customerName,
+    salonName,
+    serviceName,
+    date,
+    time,
+    appointmentId,
+  } = notificationData;
+
+  try {
+    const query = [];
+    if (customerEmail) query.push({ email: customerEmail });
+    if (customerPhone) query.push({ phone: customerPhone });
+
+    if (query.length === 0) {
+      console.warn('⚠️  sendAppointmentCancellationPush: No email or phone provided');
+      return { success: false, error: 'No identifier provided' };
+    }
+
+    const user = await User.findOne({ $or: query }).select('fcmToken').lean();
+
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    if (!user.fcmToken) {
+      return { success: false, error: 'No FCM token for user' };
+    }
+
+    const title = '❌ Appointment Cancelled';
+    const body  = `Your appointment at ${salonName} on ${date} at ${time} has been cancelled.`;
+
+    const data = {
+      type:          'appointmentCancellation',
+      appointmentId: appointmentId || '',
+      salonName:     salonName     || '',
+      serviceName:   serviceName   || '',
+      date:          date          || '',
+      time:          time          || '',
+    };
+
+    return await sendPushNotification(user.fcmToken, title, body, data);
+  } catch (err) {
+    console.error('❌ sendAppointmentCancellationPush error:', err.message);
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Send an "Appointment Reminder" push notification.
+ */
+const sendAppointmentReminderPush = async (notificationData) => {
+  const {
+    customerEmail,
+    customerPhone,
+    customerName,
+    salonName,
+    serviceName,
+    date,
+    time,
+    appointmentId,
+  } = notificationData;
+
+  try {
+    const query = [];
+    if (customerEmail) query.push({ email: customerEmail });
+    if (customerPhone) query.push({ phone: customerPhone });
+
+    if (query.length === 0) {
+      console.warn('⚠️  sendAppointmentReminderPush: No email or phone provided');
+      return { success: false, error: 'No identifier provided' };
+    }
+
+    const user = await User.findOne({ $or: query }).select('fcmToken').lean();
+
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    if (!user.fcmToken) {
+      return { success: false, error: 'No FCM token for user' };
+    }
+
+    const title = '⏰ Appointment Reminder';
+    const body  = `Friendly reminder: You have an appointment tomorrow at ${salonName} (${time}).`;
+
+    const data = {
+      type:          'appointmentReminder',
+      appointmentId: appointmentId || '',
+      salonName:     salonName     || '',
+      serviceName:   serviceName   || '',
+      date:          date          || '',
+      time:          time          || '',
+    };
+
+    return await sendPushNotification(user.fcmToken, title, body, data);
+  } catch (err) {
+    console.error('❌ sendAppointmentReminderPush error:', err.message);
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Send a promotional push notification to a user.
+ */
+const sendPromotionalPush = async (customerEmail, promotionData) => {
+  const {
+    promotionTitle,
+    promotionDescription,
+    discountPercentage,
+    validUntil,
+    salonName,
+    promotionCode,
+  } = promotionData;
+
+  try {
+    const user = await User.findOne({ email: customerEmail }).select('fcmToken').lean();
+
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    if (!user.fcmToken) {
+      return { success: false, error: 'No FCM token for user' };
+    }
+
+    const title = promotionTitle || `🎁 Special Offer from ${salonName}!`;
+    const body  = promotionDescription || `Use code ${promotionCode} to get ${discountPercentage}% off at ${salonName}!`;
+
+    const data = {
+      type:                 'promotional',
+      salonName:            salonName || '',
+      promotionTitle:       promotionTitle || '',
+      promotionDescription: promotionDescription || '',
+      promotionCode:        promotionCode || '',
+      discountPercentage:   String(discountPercentage ?? 0),
+      validUntil:           validUntil || '',
+    };
+
+    return await sendPushNotification(user.fcmToken, title, body, data);
+  } catch (err) {
+    console.error('❌ sendPromotionalPush error:', err.message);
+    return { success: false, error: err.message };
+  }
+};
+
 module.exports = {
   sendPushNotification,
   sendAppointmentConfirmationPush,
+  sendAppointmentReschedulePush,
+  sendAppointmentCancellationPush,
+  sendAppointmentReminderPush,
+  sendPromotionalPush,
 };

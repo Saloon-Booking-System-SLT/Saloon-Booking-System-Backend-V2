@@ -652,15 +652,26 @@ router.patch("/:id/status", async (req, res) => {
     // Send cancellation email when appointment is cancelled
     if ((status === "cancelled" || status === "cancel") && updated.user?.email) {
       try {
- console.log(' Sending cancellation notification for appointment:', updated._id);
+        console.log(' Sending cancellation notification for appointment:', updated._id);
         const cancellationData = {
           ...notificationData,
           cancellationReason: req.body.cancellationReason || null
         };
         const cancellationResult = await notificationService.sendAppointmentCancellation(cancellationData);
- console.log(' Cancellation notification result:', cancellationResult);
+        console.log(' Cancellation notification result:', cancellationResult);
+
+        // 🔔 Send FCM push notification to customer's phone
+        const fcmService = require('../services/fcmService');
+        fcmService.sendAppointmentCancellationPush({
+          ...cancellationData,
+          appointmentId: updated._id.toString()
+        }).then(pushResult => {
+          console.log('📱 Cancellation FCM push result:', pushResult);
+        }).catch(pushError => {
+          console.error('❌ Cancellation FCM push error (non-blocking):', pushError.message);
+        });
       } catch (notificationError) {
- console.error(' Cancellation notification error:', notificationError);
+        console.error(' Cancellation notification error:', notificationError);
         // Don't fail the status update if notification fails
       }
     }
@@ -881,6 +892,17 @@ router.patch("/:id/reschedule", async (req, res) => {
         });
         const rescheduleResult = await notificationService.sendAppointmentReschedule(notificationData);
         console.log('Reschedule notification result:', rescheduleResult);
+
+        // 🔔 Send FCM push notification to customer's phone
+        const fcmService = require('../services/fcmService');
+        fcmService.sendAppointmentReschedulePush({
+          ...notificationData,
+          appointmentId: updatedAppointment._id.toString()
+        }).then(pushResult => {
+          console.log('📱 Reschedule FCM push result:', pushResult);
+        }).catch(pushError => {
+          console.error('❌ Reschedule FCM push error (non-blocking):', pushError.message);
+        });
       } else {
         console.warn('Salon not found for rescheduled appointment:', updatedAppointment.salonId);
       }

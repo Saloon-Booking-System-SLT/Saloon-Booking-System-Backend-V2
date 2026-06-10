@@ -118,7 +118,7 @@ router.post('/:id/send-emails', async (req, res) => {
       promotionDescription: promotion.description,
       discountPercentage: promotion.discountPercentage,
       validUntil: promotion.validUntil,
-      salonName: promotion.salonId.name,
+      salonName: promotion.salonId ? promotion.salonId.name : 'All Salons',
       promotionCode: promotion.code
     };
     

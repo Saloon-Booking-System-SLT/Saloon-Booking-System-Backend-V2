@@ -2351,10 +2351,11 @@ class NotificationService {
       serviceName,
       date,
       time,
-      salonPhone
+      salonPhone,
+      appointmentId
     } = appointmentData;
 
-    const results = { email: null, sms: null };
+    const results = { email: null, sms: null, push: null };
 
     if (customerEmail) {
       results.email = await this.sendEmail(customerEmail, 'appointmentReminder', {
@@ -2374,6 +2375,24 @@ class NotificationService {
         date,
         time
       });
+    }
+
+    // 🔔 Send FCM push notification to customer's phone
+    try {
+      const fcmService = require('./fcmService');
+      results.push = await fcmService.sendAppointmentReminderPush({
+        customerEmail,
+        customerPhone,
+        customerName,
+        salonName,
+        serviceName,
+        date,
+        time,
+        appointmentId
+      });
+      console.log('📱 Reminder FCM push result:', results.push);
+    } catch (pushError) {
+      console.error('❌ Reminder FCM push error (non-blocking):', pushError.message);
     }
 
     return results;
@@ -2715,6 +2734,22 @@ class NotificationService {
         };
         
         const result = await this.sendPromotionalEmail(emailData);
+
+        // 🔔 Send FCM push notification to customer's phone
+        try {
+          const fcmService = require('./fcmService');
+          fcmService.sendPromotionalPush(customer.email, promotionData)
+            .then(pushResult => {
+              if (pushResult.success) {
+                console.log(`📱 Promotional FCM push sent to ${customer.email}`);
+              }
+            })
+            .catch(pushError => {
+              console.error(`❌ Promotional FCM push error for ${customer.email}:`, pushError.message);
+            });
+        } catch (pushError) {
+          console.error('❌ Failed to trigger Promotional FCM push:', pushError.message);
+        }
         
         if (result.success) {
           results.success++;
@@ -2792,12 +2827,13 @@ class NotificationService {
             serviceName: serviceName,
             date: appointment.date,
             time: time,
-            salonPhone: salonPhone
+            salonPhone: salonPhone,
+            appointmentId: appointment._id.toString()
           };
           
           const result = await this.sendAppointmentReminder(reminderData);
           
-          if (result.email?.success || result.sms?.success) {
+          if (result.email?.success || result.sms?.success || result.push?.success) {
             remindersent++;
  console.log(` Reminder sent to ${appointment.user.name}`);
           }

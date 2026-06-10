@@ -1216,12 +1216,25 @@ router.post('/fcm-token', async (req, res) => {
   try {
     const { userId, fcmToken } = req.body;
 
-    if (!userId || !fcmToken) {
+    if (!userId) {
       return res.status(400).json({
         success: false,
-        message: 'userId and fcmToken are required'
+        message: 'userId is required'
       });
     }
+
+    // If fcmToken is empty or null, clear it for this user (logout scenario)
+    if (!fcmToken) {
+      await User.findByIdAndUpdate(userId, { $unset: { fcmToken: '' } });
+      console.log(`🗑️ FCM token cleared for user ${userId}`);
+      return res.json({ success: true, message: 'FCM token cleared' });
+    }
+
+    // Unlink this token from any other users first (to avoid duplicate routing to the same device)
+    await User.updateMany(
+      { fcmToken, _id: { $ne: userId } },
+      { $unset: { fcmToken: '' } }
+    );
 
     const user = await User.findByIdAndUpdate(
       userId,
